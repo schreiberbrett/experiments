@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Line Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // Setup canvas
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Variables
+        const N = 300; // Number of points
+        const R = 50; // Radius of each point (not used visually, only for collision calculation)
+        const DX = 2; // Velocity in pixels per frame
+        const T = 100; // Maximum distance threshold for opacity 0
+
+        // Responsive canvas setup
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Point class definition
+        class Point {
+            constructor(x, y, angle) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.vx = Math.cos(angle) * DX;
+                this.vy = Math.sin(angle) * DX;
+            }
+
+            // Update position of the point
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Bounce off walls
+                if (this.x - R < 0 || this.x + R > canvas.width) {
+                    this.vx = -this.vx;
+                }
+                if (this.y - R < 0 || this.y + R > canvas.height) {
+                    this.vy = -this.vy;
+                }
+            }
+        }
+
+        // Create points with random positions and directions
+        let points = [];
+        for (let i = 0; i < N; i++) {
+            const x = Math.random() * (canvas.width - 2 * R) + R;
+            const y = Math.random() * (canvas.height - 2 * R) + R;
+            const angle = Math.random() * Math.PI * 2;
+            points.push(new Point(x, y, angle));
+        }
+
+        // Draw lines between all points with varying opacity based on distance
+        function drawLines() {
+            for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                    const dx = points[i].x - points[j].x;
+                    const dy = points[i].y - points[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    // Calculate opacity based on distance
+                    const opacity = Math.max(0, 1 - distance / T);
+
+                    // Draw the line with calculated opacity
+                    ctx.beginPath();
+                    ctx.moveTo(points[i].x, points[i].y);
+                    ctx.lineTo(points[j].x, points[j].y);
+                    ctx.strokeStyle = `rgba(0, 0, 255, ${opacity})`; // Blue line with dynamic opacity
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.closePath();
+                }
+            }
+        }
+
+        // Animation loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update each point's position
+            points.forEach(point => {
+                point.update();
+            });
+
+            // Draw lines between points
+            drawLines();
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
+
