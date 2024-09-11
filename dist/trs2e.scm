@@ -1,15 +1,7 @@
-https://schreiberbrett.github.io/experiments/
-
-
-```scheme
 (defrel (poso x)
   (fresh (a d) (== x `(,a . ,d))))
-```
 
 
-And:
-
-```scheme
 (defrel (olego n)
   (conde ((== n '()))
          ((fresh (a d)
@@ -17,9 +9,8 @@ And:
             (conde ((== a 0) (poso d))
                    ((== a 1)))
             (olego d)))))
-```
 
-```scheme
+
 (defrel (primeo n)
   (olego n)
   (project (n)
@@ -35,22 +26,12 @@ And:
           ((= i n) #t)
           ((= (modulo n i) 0) #f)
           (else (loop (+ i 1))))))
-```
 
 
-
-```scheme
 (defrel (membero x l)
   (fresh (a d)
     (== l `(,a . ,d))
     (conde ((== x a))
            ((membero x d)))))
-```
 
-```scheme
-(defrel (membero/diseq x l)
-  (fresh (a d)
-    (== l `(,a . ,d))
-    (conde ((==  x a))
-           ((=/= x a) (membero x d)))))
-```
+
