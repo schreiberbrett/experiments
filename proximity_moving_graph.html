@@ -38,7 +38,7 @@
         const numPoints = 100;
         const dotSize = 3;
         const speed = 1.5; // Speed of each dot
-        const maxDistance = 0.05 * Math.max(canvas.width, canvas.height); // 10% of the maximum canvas dimension
+        const maxDistance = 0.07 * Math.max(canvas.width, canvas.height); // 10% of the maximum canvas dimension
 
         // Create an array of points with random positions and directions
         const points = Array.from({ length: numPoints }, () => ({
@@ -59,7 +59,7 @@
 
                     if (distance < maxDistance) {
                         ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; // Light line color
-                        ctx.lineWidth = 1;
+                        ctx.lineWidth = 1.3;
                         ctx.beginPath();
                         ctx.moveTo(points[i].x, points[i].y);
                         ctx.lineTo(points[j].x, points[j].y);
