@@ -27,11 +27,7 @@ def main():
             scheme_blocks = extract_between(content, '```scheme\n', '```\n')
 
             for block in scheme_blocks:
-                print('Considering:')
-                print(block)
                 for k in langs:
-                    print('With', k, end=': ')
-
                     if not any(
                         keywords[i] in block and langs[k][i] == 0
                         for i in range(len(keywords))
