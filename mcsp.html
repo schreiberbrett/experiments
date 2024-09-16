@@ -7,38 +7,47 @@
     <style>
     script {
         display: block;
+        white-space: pre;
+        font-family: monospace;
     }
     </style>
 </head>
 <body>
 
-<script>
-/*
+<p>
 A circuit has n boolean inputs, m output wires, and k gates. This file considers only NAND gates.
+</p>
 
+<p>
 The representation used stores these three numbers, plus an array of output wires.
+</p>
 
+
+<p>
 A wire is either an input (with a name) or it is a Nand gate with two pointers to other wires. Either way, it has a nonnegative integer id.
+</p>
 
+<p>
 n and k are polynomial in m if a sufficient number of wires are aliases of the same gate in memory.
-*/
+</p>
 
 
-/*
+<p>
 Famous FP-complete problem: The Circuit Value Problem.
 The environment is a mapping from input wire ids to true/false.
 
 Uses a cache to avoid recomputing aliased wires.
-*/
+</p>
+<script>
 function eval(ckt, env) {
     let cache = {};    
     function val(wire) {  
         if (!(wire.id in cache)) {
-            if (wire.kind == 'input') {
+            if (wire.kind === 'input') {
                 cache[wire.id] = env[wire.id];
             }
             
-            if (wire.kind == 'gate') {
+            if (wire.kind === 'gate') {
                 cache[wire.id] = !(
                     val(wire.l) &&
                     val(wire.r)
