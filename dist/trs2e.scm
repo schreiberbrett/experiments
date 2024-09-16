@@ -16,6 +16,23 @@
   (evalo ckt '((a . 1) (b . 1)) 0))
 
 
+(defrel (cmpo n m o)
+  (fresh (n-1 m-1)
+    (conde ((== n '()) (== m '()) (== o 'eq))
+           ((== n `(s . ,n-1)) (== m '()) (== o 'gt))
+           ((== n '()) (== m `(s . ,m-1)) (== o 'lt))
+           ((== n `(s . ,n-1)) (== m `(s . ,m-1)) (cmpo n-1 m-1 o)))))
+
+
+(defrel (interleaveo l1 l2 l1<>l2)
+  (fresh (a1 a2 d1 d2 d1<>d2)
+    (conde ((== l1 '()) (== l2 '()) (== l1<>l2 '()))
+           ((== l1 '()) (== l2 `(,a2)) (== l1<>l2 `(,a2)))
+           ((== l1 `(,a1 . ,d1)) (== l2 `(,a2 . ,d2))
+            (== l1<>l2 `(,a1 ,a2 . ,d1<>d2))
+            (interleaveo d1 d2 d1<>d2)))))
+
+
 (defrel (poso x)
   (fresh (a d) (== x `(,a . ,d))))
 

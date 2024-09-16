@@ -1,12 +1,12 @@
 import os
 import glob
 
-keywords =       ['==', '=/=', 'absento', 'conda', 'condu', 'project', '(in', '!in', '(set', 'empty-set']
+keywords =       ['==', '=/=', 'absento', 'conda', 'condu', 'project', '(in ', '!in', '(set', 'empty-set']
 langs = {
-    'trs2e':     [   1,     0,         0,       1,       1,         1,     0,     0,      0,           0],
-    'faster-mk': [   1,     1,         1,       0,       0,         1,     0,     0,      0,           0],
-    'clp-set':   [   1,     1,         0,       1,       1,         1,     1,     1,      1,           1],
-    'frontend':  [   1,     0,         0,       0,       0,         0,     0,     0,      0,           0]
+    'trs2e':     [   1,     0,         0,       1,       1,         1,      0,     0,      0,           0],
+    'faster-mk': [   1,     1,         1,       0,       0,         1,      0,     0,      0,           0],
+    'clp-set':   [   1,     1,         0,       1,       1,         1,      1,     1,      1,           1],
+    'frontend':  [   1,     0,         0,       0,       0,         0,      0,     0,      0,           0]
 }
 
 def main():
