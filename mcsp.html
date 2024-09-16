@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuit Synthesis</title>
+    <style>
+    script {
+        display: block;
+    }
+    </style>
+</head>
+<body>
+
+<script>
+/*
+A circuit has n boolean inputs, m output wires, and k gates. This file considers only NAND gates.
+
+The representation used stores these three numbers, plus an array of output wires.
+
+A wire is either an input (with a name) or it is a Nand gate with two pointers to other wires. Either way, it has a nonnegative integer id.
+
+n and k are polynomial in m if a sufficient number of wires are aliases of the same gate in memory.
+*/
+
+
+/*
+Famous FP-complete problem: The Circuit Value Problem.
+The environment is a mapping from input wire ids to true/false.
+
+Uses a cache to avoid recomputing aliased wires.
+*/
+function eval(ckt, env) {
+    let cache = {};    
+    function val(wire) {  
+        if (!(wire.id in cache)) {
+            if (wire.kind == 'input') {
+                cache[wire.id] = env[wire.id];
+            }
+            
+            if (wire.kind == 'gate') {
+                cache[wire.id] = !(
+                    val(wire.l) &&
+                    val(wire.r)
+                );
+            }
+        }
+        
+        return cache[wire.id];
+    }
+    
+    
+    return ckt.outputs.map(val);
+}
+
+
+/*
+Circuit Equivalence Problem
+Returns true if ckt computes the integer function f
+*/
+function equal(ckt, f) {
+    const n = ckt.n;
+
+    for (let x = 0; x < 2 ** ckt.n; x++) {
+        let inputs = [];
+        for (let i = 0; i < ckt.n; i++) {
+            inputs.push(x >> i);
+        }
+        
+
+        const actual   = eval(ckt, inputs); // An array of booleans
+        const expected = f(x);              // A number whose m lowest bits are the only ones considered.
+        
+        for (let j = 0; j < m; j++) {
+            if (actual[j] !== (expected >> j)) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+
+
+/*
+Make a list of all n, m, k circuits
+*/
+function listAll(n, m, k) {
+    if (k === 0) {
+        return [];
+    }
+    
+    const rec = listAll(n, m, k-1);
+    
+    
+    /*
+    Each 
+    */
+    for (let ckt of rec) {
+        for (let i = 0; i < m; i++) {
+            
+        }
+    }
+}
+
+function copyCircuit(ckt) {
+    let cache = {};
+    function copyWire(wire) {
+        if (!(wire.id in cache)) {
+            if (wire.kind === 'input') {
+                cache[wire.id] = {
+                    kind: 'input',
+                    id: wire.id
+                }
+            }
+            
+            if (wire.kind === 'gate') {
+                cache[wire.id] = {
+                    kind: 'gate',
+                    id: wire.id,
+                    l: copyWire(wire.l),
+                    r: copyWire(wire.r)
+                };
+            }
+        }
+    }
+
+    for (let i = 0; i < ckt.m; i++) {
+        
+    
+    }
+}
+
+functon chooseK(x, candidates, sofar, used, k, op) {
+    if (k == 0) {
+        return x;
+    }
+
+    for (let i = 0; i < candidates.length; i++) {
+        for (let j = 0; j <= i; j++) {
+            let hash = `({i}, {j})`;
+            if (!used.has(hash)) {
+                used.add(hash);
+                candidates.push(op(i, j));
+
+                let ckt = [];
+                for (let k = 0; k < candidates.length; k++) {
+                    ckt.push(candidates[k]);
+                }
+                
+                x.push(ckt);
+                
+                chooseK(x, candidates, used, k-1, op);
+
+                candidates.pop();
+                used.remove(hash);
+            }
+        }
+    }
+}
+</script>
+</body>
+</html>
