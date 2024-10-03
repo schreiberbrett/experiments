@@ -54,7 +54,7 @@ class Circle {
     update(circles, target) {
         if (this.movable) {
             // Add attraction toward the black circle
-            const attraction = 0.05;
+            const attraction = 0.03;  // Slightly toned-down attraction
             const xDist = target.x - this.x;
             const yDist = target.y - this.y;
             const distance = Math.hypot(xDist, yDist);
@@ -66,8 +66,12 @@ class Circle {
             this.x += this.dx;
             this.y += this.dy;
 
-            // Bounce off the walls elastically
-            const elasticity = 1.3; // Drastically increase bounce effect
+            // Apply a friction to slowly return velocities to normal
+            this.dx *= 0.99;
+            this.dy *= 0.99;
+
+            // Bounce off the walls
+            const elasticity = 1.1; // Toned-down elasticity
             if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
                 this.dx = -this.dx * elasticity;
             }
@@ -102,7 +106,7 @@ class Circle {
     }
 }
 
-// Handle collision between two circles with higher elasticity
+// Handle collision between two circles with toned-down elasticity
 function handleCollision(circle1, circle2) {
     const xDist = circle1.x - circle2.x;
     const yDist = circle1.y - circle2.y;
@@ -112,8 +116,8 @@ function handleCollision(circle1, circle2) {
     const nx = xDist / dist;
     const ny = yDist / dist;
 
-    // Exchange velocities with high elasticity
-    const elasticity = 1.5;
+    // Elastic collision with lower elasticity
+    const elasticity = 1.05;
     const p = 2 * (circle1.dx * nx + circle1.dy * ny - circle2.dx * nx - circle2.dy * ny) / (circle1.radius + circle2.radius);
 
     circle1.dx = circle1.dx - p * circle1.radius * nx * elasticity;
@@ -148,15 +152,16 @@ function createCircles(numRed, numBlue, radiusRed, radiusBlue, ballRadius) {
         circles.push(blueCircle);
     }
 
-    // Create the static black circle (ball)
-    const blackCircle = new Circle(canvas.width / 2, canvas.height / 2, ballRadius, 'black', 0, 0, false);
+    // Create the black circle (ball) with a larger radius
+    const blackCircle = new Circle(canvas.width / 2, canvas.height / 2, ballRadius, 'black', 0, 0, true);
     circles.push(blackCircle);
 
     return circles;
 }
 
 const radiusMultiplier = 5;
-const circles = createCircles(11, 11, 2 * radiusMultiplier, 2 * radiusMultiplier, 1 * radiusMultiplier);
+const blackRadiusMultiplier = 10; // Even larger black circle
+const circles = createCircles(11, 11, 2 * radiusMultiplier, 2 * radiusMultiplier, 1 * radiusMultiplier * blackRadiusMultiplier);
 
 // Animation loop
 function animate() {
@@ -164,6 +169,10 @@ function animate() {
     
     // Get the black circle (last in the array)
     const blackCircle = circles[circles.length - 1];
+
+    // Apply friction to slow down the black circle
+    blackCircle.dx *= 0.98;
+    blackCircle.dy *= 0.98;
 
     circles.forEach(circle => circle.update(circles, blackCircle));
     requestAnimationFrame(animate);
