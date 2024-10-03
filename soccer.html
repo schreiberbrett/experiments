@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circle Collision Simulation</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<script>
+// Set up the canvas and context
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// Make the canvas responsive
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Circle object
+class Circle {
+    constructor(x, y, radius, color, dx = 0, dy = 0, movable = true) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.color = color;
+        this.dx = dx;
+        this.dy = dy;
+        this.movable = movable;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    update(circles) {
+        if (this.movable) {
+            // Move the circle
+            this.x += this.dx;
+            this.y += this.dy;
+
+            // Bounce off the walls
+            if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) {
+                this.dx = -this.dx;
+            }
+            if (this.y - this.radius < 0 || this.y + this.radius > canvas.height) {
+                this.dy = -this.dy;
+            }
+        }
+
+        // Check collision with other circles
+        for (let i = 0; i < circles.length; i++) {
+            if (this !== circles[i]) {
+                const dist = Math.hypot(this.x - circles[i].x, this.y - circles[i].y);
+                if (dist < this.radius + circles[i].radius) {
+                    handleCollision(this, circles[i]);
+                }
+            }
+        }
+
+        this.draw();
+    }
+}
+
+// Handle collision between two circles
+function handleCollision(circle1, circle2) {
+    const xDist = circle1.x - circle2.x;
+    const yDist = circle1.y - circle2.y;
+    const dist = Math.hypot(xDist, yDist);
+
+    // Normal vector
+    const nx = xDist / dist;
+    const ny = yDist / dist;
+
+    // Push the non-movable circle if applicable
+    if (!circle2.movable) {
+        circle2.x += nx;
+        circle2.y += ny;
+    }
+
+    // Exchange velocities
+    const p = 2 * (circle1.dx * nx + circle1.dy * ny - circle2.dx * nx - circle2.dy * ny) / (circle1.radius + circle2.radius);
+    
+    circle1.dx = circle1.dx - p * circle1.radius * nx;
+    circle1.dy = circle1.dy - p * circle1.radius * ny;
+    circle2.dx = circle2.dx + p * circle2.radius * nx;
+    circle2.dy = circle2.dy + p * circle2.radius * ny;
+}
+
+// Create random circles
+function createCircles(numRed, numBlue, radiusRed, radiusBlue) {
+    const circles = [];
+    for (let i = 0; i < numRed; i++) {
+        const redCircle = new Circle(
+            Math.random() * canvas.width,
+            Math.random() * canvas.height,
+            radiusRed,
+            'red',
+            (Math.random() - 0.5) * 2,
+            (Math.random() - 0.5) * 2
+        );
+        circles.push(redCircle);
+    }
+    for (let i = 0; i < numBlue; i++) {
+        const blueCircle = new Circle(
+            Math.random() * canvas.width,
+            Math.random() * canvas.height,
+            radiusBlue,
+            'blue',
+            (Math.random() - 0.5) * 2,
+            (Math.random() - 0.5) * 2
+        );
+        circles.push(blueCircle);
+    }
+
+    // Create the static black circle
+    const blackCircle = new Circle(canvas.width / 2, canvas.height / 2, 1, 'black', 0, 0, false);
+    circles.push(blackCircle);
+
+    return circles;
+}
+
+const circles = createCircles(11, 11, 2, 2);
+
+// Animation loop
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    circles.forEach(circle => circle.update(circles));
+    requestAnimationFrame(animate);
+}
+animate();
+
+</script>
+</body>
+</html>
