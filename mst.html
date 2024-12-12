@@ -110,7 +110,7 @@
                 const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 circle.setAttribute("cx", point.x);
                 circle.setAttribute("cy", point.y);
-                circle.setAttribute("r", 5);
+                circle.setAttribute("r", 3);
                 circle.setAttribute("fill", "black");
                 svg.appendChild(circle);
             }
@@ -146,8 +146,14 @@
         }
 
         function startSimulation() {
+            const svg = document.getElementById("graph");
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+
+            const n = Math.floor(Math.sqrt(width * height) / 12);
+
             cancelAnimationFrame(animationFrame); // Stop previous animation if running
-            generateRandomPoints(175);
+            generateRandomPoints(n);
             animationFrame = requestAnimationFrame(step);
         }
 
