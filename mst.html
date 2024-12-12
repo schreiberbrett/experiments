@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Points MST</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        svg {
+            display: inline-block;
+            width: 98vw;
+            height: 98vh;
+        }
+    </style>
+</head>
+<body>
+    <svg id="graph"></svg>
+
+    <script>
+        let points = [];
+        let velocities = [];
+        let animationFrame;
+
+        function generateRandomPoints(n) {
+            const svg = document.getElementById("graph");
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+
+            points = [];
+            velocities = [];
+
+            for (let i = 0; i < n; i++) {
+                points.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height
+                });
+                const angle = Math.random() * 2 * Math.PI;
+                velocities.push({
+                    vx: 100 * Math.cos(angle),
+                    vy: 100 * Math.sin(angle)
+                });
+            }
+        }
+
+        function calculateDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        function kruskalMST(points) {
+            const edges = [];
+            const parent = Array(points.length).fill(null).map((_, i) => i);
+
+            function find(u) {
+                if (parent[u] === u) return u;
+                return parent[u] = find(parent[u]);
+            }
+
+            function union(u, v) {
+                parent[find(u)] = find(v);
+            }
+
+            for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                    edges.push({
+                        u: i,
+                        v: j,
+                        weight: calculateDistance(points[i], points[j])
+                    });
+                }
+            }
+
+            edges.sort((a, b) => a.weight - b.weight);
+
+            const mst = [];
+            for (const edge of edges) {
+                if (find(edge.u) !== find(edge.v)) {
+                    mst.push(edge);
+                    union(edge.u, edge.v);
+                }
+            }
+
+            return mst;
+        }
+
+        function renderGraph(points, mst) {
+            const svg = document.getElementById("graph");
+            svg.innerHTML = "";
+
+            // Draw edges
+            for (const edge of mst) {
+                const { u, v } = edge;
+                const x1 = points[u].x;
+                const y1 = points[u].y;
+                const x2 = points[v].x;
+                const y2 = points[v].y;
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", x1);
+                line.setAttribute("y1", y1);
+                line.setAttribute("x2", x2);
+                line.setAttribute("y2", y2);
+                line.setAttribute("stroke", "black");
+                svg.appendChild(line);
+            }
+
+            // Draw points
+            for (const point of points) {
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", point.x);
+                circle.setAttribute("cy", point.y);
+                circle.setAttribute("r", 5);
+                circle.setAttribute("fill", "black");
+                svg.appendChild(circle);
+            }
+        }
+
+        function updatePoints(deltaTime) {
+            const svg = document.getElementById("graph");
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+
+            for (let i = 0; i < points.length; i++) {
+                points[i].x += velocities[i].vx * deltaTime;
+                points[i].y += velocities[i].vy * deltaTime;
+
+                // Bounce off the walls
+                if (points[i].x < 0 || points[i].x > width) {
+                    velocities[i].vx *= -1;
+                    points[i].x = Math.max(0, Math.min(points[i].x, width));
+                }
+                if (points[i].y < 0 || points[i].y > height) {
+                    velocities[i].vy *= -1;
+                    points[i].y = Math.max(0, Math.min(points[i].y, height));
+                }
+            }
+        }
+
+        function step(timestamp) {
+            const deltaTime = 1 / 80; // Fixed timestep of 1/30th of a second
+            updatePoints(deltaTime);
+            const mst = kruskalMST(points);
+            renderGraph(points, mst);
+            animationFrame = requestAnimationFrame(step);
+        }
+
+        function startSimulation() {
+            cancelAnimationFrame(animationFrame); // Stop previous animation if running
+            generateRandomPoints(175);
+            animationFrame = requestAnimationFrame(step);
+        }
+
+        window.onload = startSimulation;
+    </script>
+</body>
+</html>
