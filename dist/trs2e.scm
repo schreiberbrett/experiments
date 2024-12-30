@@ -1,3 +1,38 @@
+(defrel (evalo f env o)
+  (conde ((fresh (x)
+            (== f `(var ,x))
+            (lookupo x env o)))
+         ((fresh (f1 f2 o1 o2)
+            (== f `(nand ,f1 ,f2))
+            (nando o1 o2 o)
+            (evalo f1 env o1)
+            (evalo f2 env o2)))))
+
+
+(defrel (synthesizeo ckt)
+  (evalo ckt '((a . 0) (b . 0)) 1)
+  (evalo ckt '((a . 0) (b . 1)) 1)
+  (evalo ckt '((a . 1) (b . 0)) 1)
+  (evalo ckt '((a . 1) (b . 1)) 0))
+
+
+(defrel (cmpo n m o)
+  (fresh (n-1 m-1)
+    (conde ((== n '()) (== m '()) (== o 'eq))
+           ((== n `(s . ,n-1)) (== m '()) (== o 'gt))
+           ((== n '()) (== m `(s . ,m-1)) (== o 'lt))
+           ((== n `(s . ,n-1)) (== m `(s . ,m-1)) (cmpo n-1 m-1 o)))))
+
+
+(defrel (interleaveo l1 l2 l1<>l2)
+  (fresh (a1 a2 d1 d2 d1<>d2)
+    (conde ((== l1 '()) (== l2 '()) (== l1<>l2 '()))
+           ((== l1 '()) (== l2 `(,a2)) (== l1<>l2 `(,a2)))
+           ((== l1 `(,a1 . ,d1)) (== l2 `(,a2 . ,d2))
+            (== l1<>l2 `(,a1 ,a2 . ,d1<>d2))
+            (interleaveo d1 d2 d1<>d2)))))
+
+
 (defrel (poso x)
   (fresh (a d) (== x `(,a . ,d))))
 

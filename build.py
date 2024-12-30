@@ -1,12 +1,12 @@
 import os
 import glob
 
-keywords =       ['==', '=/=', 'absento', 'conda', 'condu', 'project', '(in', '!in', '(set', 'empty-set']
+keywords =       ['==', '=/=', 'absento', 'conda', 'condu', 'project', '(in ', '!in', '(set', 'empty-set']
 langs = {
-    'trs2e':     [   1,     0,         0,       1,       1,         1,     0,     0,      0,           0],
-    'faster-mk': [   1,     1,         1,       0,       0,         1,     0,     0,      0,           0],
-    'clp-set':   [   1,     1,         0,       1,       1,         1,     1,     1,      1,           1],
-    'frontend':  [   1,     0,         0,       0,       0,         0,     0,     0,      0,           0]
+    'trs2e':     [   1,     0,         0,       1,       1,         1,      0,     0,      0,           0],
+    'faster-mk': [   1,     1,         1,       0,       0,         1,      0,     0,      0,           0],
+    'clp-set':   [   1,     1,         0,       1,       1,         1,      1,     1,      1,           1],
+    'frontend':  [   1,     0,         0,       0,       0,         0,      0,     0,      0,           0]
 }
 
 def main():
@@ -27,11 +27,7 @@ def main():
             scheme_blocks = extract_between(content, '```scheme\n', '```\n')
 
             for block in scheme_blocks:
-                print('Considering:')
-                print(block)
                 for k in langs:
-                    print('With', k, end=': ')
-
                     if not any(
                         keywords[i] in block and langs[k][i] == 0
                         for i in range(len(keywords))
