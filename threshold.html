@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grayscale Image Threshold with Histogram</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 600px;
+    }
+    .images {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+    .controls {
+      margin-top: 20px;
+      text-align: center;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    .histogram-container {
+      width: 100%;
+      max-width: 600px;
+      height: 150px;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      align-items: flex-end;
+    }
+    .histogram-bar {
+      width: 2px;
+      background-color: black;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Grayscale Image Threshold with Histogram</h1>
+
+    <!-- Image upload input (accepts PNG and JPG) -->
+    <input type="file" id="imageUpload" accept="image/png, image/jpeg" />
+
+    <!-- Responsive image display -->
+    <div class="images">
+      <div>
+        <h3>Original Image</h3>
+        <img id="originalImage" alt="Uploaded Image" />
+      </div>
+      <div>
+        <h3>Threshold Image</h3>
+        <canvas id="thresholdImage"></canvas>
+      </div>
+    </div>
+
+    <!-- Slider and Apply Threshold Button -->
+    <div class="controls">
+      <label for="thresholdSlider">Threshold: <span id="thresholdValue">128</span></label><br>
+      <input type="range" id="thresholdSlider" min="0" max="255" value="128" />
+      <button id="applyButton">Apply Threshold</button>
+    </div>
+
+    <!-- Histogram -->
+    <div class="histogram-container" id="histogram"></div>
+
+  </div>
+
+  <script>
+    const imageUpload = document.getElementById('imageUpload');
+    const originalImage = document.getElementById('originalImage');
+    const thresholdImage = document.getElementById('thresholdImage');
+    const thresholdSlider = document.getElementById('thresholdSlider');
+    const thresholdValue = document.getElementById('thresholdValue');
+    const applyButton = document.getElementById('applyButton');
+    const histogramContainer = document.getElementById('histogram');
+
+    let originalImageData = null;
+    let canvasContext = thresholdImage.getContext('2d');
+
+    // Load image on upload
+    imageUpload.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file && (file.type === 'image/png' || file.type === 'image/jpeg')) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          originalImage.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // When the original image loads, display it and prepare the canvas for the threshold image
+    originalImage.addEventListener('load', () => {
+      const canvasWidth = originalImage.naturalWidth;
+      const canvasHeight = originalImage.naturalHeight;
+      thresholdImage.width = canvasWidth;
+      thresholdImage.height = canvasHeight;
+
+      canvasContext.drawImage(originalImage, 0, 0, canvasWidth, canvasHeight);
+      originalImageData = canvasContext.getImageData(0, 0, canvasWidth, canvasHeight);
+      applyThreshold(parseInt(thresholdSlider.value, 10));
+      generateHistogram(originalImageData);
+    });
+
+    // Function to apply threshold and update canvas
+    function applyThreshold(threshold) {
+      thresholdValue.textContent = threshold;
+      if (!originalImageData) return;
+
+      // Get a copy of the original image data
+      const thresholdImageData = canvasContext.createImageData(originalImageData);
+
+      for (let i = 0; i < originalImageData.data.length; i += 4) {
+        const grayscaleValue = originalImageData.data[i]; // Since the image is grayscale, R, G, and B are the same
+        const newValue = grayscaleValue < threshold ? 0 : 255; // Set black or white based on threshold
+
+        // Set the R, G, and B values to either 0 (black) or 255 (white)
+        thresholdImageData.data[i] = newValue;
+        thresholdImageData.data[i + 1] = newValue;
+        thresholdImageData.data[i + 2] = newValue;
+        thresholdImageData.data[i + 3] = originalImageData.data[i + 3]; // Keep alpha channel as it is
+      }
+
+      // Put the modified image data back into the canvas
+      canvasContext.putImageData(thresholdImageData, 0, 0);
+    }
+
+    // Update threshold value display when the slider is moved
+    thresholdSlider.addEventListener('input', (event) => {
+      thresholdValue.textContent = event.target.value;
+    });
+
+    // Apply the threshold when the "Apply Threshold" button is clicked
+    applyButton.addEventListener('click', () => {
+      const threshold = parseInt(thresholdSlider.value, 10);
+      applyThreshold(threshold);
+    });
+
+    // Function to generate the histogram from image data
+    function generateHistogram(imageData) {
+      const bins = new Array(256).fill(0);
+      const pixelCount = imageData.width * imageData.height;
+
+      // Count pixel values into bins
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const grayscaleValue = imageData.data[i]; // Since it's grayscale, any of R, G, or B will do
+        bins[grayscaleValue]++;
+      }
+
+      // Normalize the bins to percentages
+      const maxCount = Math.max(...bins);
+      const normalizedBins = bins.map(count => (count / maxCount) * 100);
+
+      // Clear the histogram container
+      histogramContainer.innerHTML = '';
+
+      // Create the histogram bars
+      normalizedBins.forEach(heightPercentage => {
+        const bar = document.createElement('div');
+        bar.classList.add('histogram-bar');
+        bar.style.height = `${heightPercentage}%`;
+        histogramContainer.appendChild(bar);
+      });
+    }
+  </script>
+
+</body>
+</html>
+

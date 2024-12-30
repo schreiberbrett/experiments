@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Textarea with Greedy Line Breaks</title>
+    <style>
+        textarea {
+            width: 100%;
+            height: 200px;
+            white-space: pre-wrap; /* Preserves whitespace, including newlines */
+            font-family: monospace; /* Monospace font for both textareas */
+        }
+        input {
+            font-family: monospace; /* Monospace font for the input box */
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+        }
+        label, input {
+            display: block;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <label for="wrap-length">Set maximum line length:</label>
+    <input type="number" id="wrap-length" min="1" value="50">
+    
+    <label for="code-input">Enter your code:</label>
+    <textarea id="code-input" placeholder="Type your code here..."></textarea>
+
+    <p>Modified Text:</p>
+    <textarea id="output" readonly></textarea>
+</div>
+
+<script>
+    const wrapLengthInput = document.getElementById('wrap-length');
+    const textarea = document.getElementById('code-input');
+    const outputTextarea = document.getElementById('output');
+
+    function wrapText(text, maxLength) {
+        const lines = text.split('\n'); // Split the text into lines
+        let wrappedText = '';
+
+        for (let line of lines) {
+            if (line === '') {
+                // Preserve empty lines
+                wrappedText += '\n';
+                continue;
+            }
+
+            // While the line exceeds maxLength, wrap it greedily at the last space
+            while (line.length > maxLength) {
+                let wrapAt = line.lastIndexOf(' ', maxLength);
+                if (wrapAt === -1) wrapAt = maxLength; // If no space, break mid-word
+
+                wrappedText += line.substring(0, wrapAt) + '\n';
+                line = line.substring(wrapAt).trim(); // Continue with the remaining text
+            }
+
+            wrappedText += line + '\n'; // Add the rest of the line
+        }
+
+        return wrappedText;
+    }
+
+    function updateWrappedText() {
+        const maxLength = parseInt(wrapLengthInput.value, 10);
+        const originalText = textarea.value;
+        const wrappedText = wrapText(originalText, maxLength);
+        outputTextarea.value = wrappedText;
+    }
+
+    // Add event listeners
+    wrapLengthInput.addEventListener('input', updateWrappedText);
+    textarea.addEventListener('input', updateWrappedText);
+
+    // Initialize the output when the page loads
+    updateWrappedText();
+</script>
+
+</body>
+</html>
+

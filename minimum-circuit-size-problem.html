@@ -1,0 +1,141 @@
+<head>
+<style>
+    script {
+        display: block;
+        white-space: pre;
+        font-family: monospace;
+    }
+</style>
+</head>
+
+<p>
+The Minimum Circuit Size Problem (MCSP) is a very interesting problem in NP. Like graph isomorphism, MCSP is not yet been proven to be in P, nor has it been proven to be NP-complete. There are many implications in either direction, as Rahul Ilango explains here: <a href="https://www.youtube.com/watch?v=Md-UP3A8iPQ">https://www.youtube.com/watch?v=Md-UP3A8iPQ</a>.
+</p>
+
+
+<p>
+The following problem specification of MCSP will be used: given a natural number n, a truth table with (n + 1) columns and 2^n rows, return the smallest circuit (that is, requiring the least amount of NAND gates) whose output wire matches the desired output bit for each combination of input wires given in the truth table.
+</p>
+
+<p>
+First check that this article is interactive. Pressing the button should change the text in the next paragraph.
+</p>
+
+<aside>
+When running Javascript in the browser, when not defining a function, elements must be defined before they are used. Therefore, the code to change the button must either come after the button, or else the code must be wrapped in a call to <code>addEventListener(...)</code>. This article does the latter.
+</aside>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let testButton = document.getElementById('test');
+    let testOutput = document.getElementById('test-output');
+    
+    testButton.onclick = _ => {
+        testOutput.innerText = 'Clicked!'
+    };
+});
+
+</script>
+
+<button id="test">Test</button>
+<p id="test-output">Not yet clicked.</p>
+
+<h2>Synthesizing the minimal circuit</h2>
+
+<p>
+The desired output may exactly match one of the input wires. For instance, if a circuit computes the least significant bit of a 4-bit input, the output can simply be the last input wire.
+</p>
+
+<p>
+If a wire is considered to be a list of N ones and zeros, then finding a matching output can be done using a standard "index-of" approach, using a notion of wire equality. By convention, -1 is returned when no match is found.
+</p>
+
+<script>
+function indexOfWire(n, wires, desired) {
+    for (let i = 0; i < wires.length; i++) {
+        let allMatch = true;
+        for (let b = 0;  b < n; b++) {
+            if (wires[i][b] !== desired[b]) {
+                allMatch = false;
+                break;
+            }
+        }
+
+        if (allMatch) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+</script>
+
+
+<p>
+Otherwise, a gate is required. Thus the algorithm must create a NAND gate using a pair of existing wires as inputs. The resultant wire has one of four roles:
+</p>
+
+<ol>
+<li>
+The new wire is the output gate.
+</li>
+<li>
+The new wire is not the output gate, but it is an ancestor to a deeper gates which produces the output wire.
+</li>
+<li>
+The proposed gate is not needed in a minimal circuit. That is, the new wire does not at all contribute to the output wire. This requires knowing what the minimum circuit is, so removing the unused gate happens at the end of the algorithm.
+</li>
+<li>
+The new wire's bit sequence fully matches an existing wire. Therefore it is known to be useless for a minimal circuit and can be deleted immediately.
+</li>
+</ol>
+
+<p>
+The algorithm generates all possible gates at a given depth. At depth 1, each gate uses two input wires. At depth n, each gate must reference its first gate from the previous depth n-1 and may reference its other gate from any earlier depth.
+</p>
+
+<p>
+Checking the 4th case requires maintaining a set of already-seen bit streams, Since these bit streams are all of fixed length k = 2^n, this set can be represented as a subtree of the complete binary tree of height k, such that if the bit stream (e.g., [0, 1, 1, 0]) is present in the seen-set, then the subtree contains the path [left, right, right, left].
+</p>
+
+<script>
+function contains(tree, sequence) {
+    let curr = tree;
+    for (let bit of sequence) {
+        if (!curr) {
+            return false;
+        }
+
+        curr = bit === 0
+            ? curr.left 
+            : curr.right;
+    }
+
+    return true;
+}
+
+</script>
+
+<script>
+function getNextLayer(n, seen, prevLayer, allLayers) {
+    let result = [];
+
+    for (let layer of allLayers) {
+        for (let g1 of layer) {
+            for (let g2 of prevLayer) {
+                let wire = nand(g1, g2);
+
+                if (!contains(seen, wire)) {
+                    result.push(wire);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+</script>
+
+

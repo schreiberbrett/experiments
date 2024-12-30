@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sort Your Albums</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f9f9f9;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: #fff;
+      animation: fadeIn 0.5s ease;
+    }
+
+    textarea {
+      width: 90%;
+      height: 50%;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 16px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #modal {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: white;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.5s ease;
+    }
+
+    #result {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: white;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.5s ease;
+    }
+
+    #modal p {
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    #modal .choices {
+      width: 100%;
+      display: flex;
+      justify-content: space-evenly;
+      position: fixed;
+      bottom: 20px;
+    }
+
+    ol {
+      padding-left: 40px;
+      font-size: 18px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes buttonFlash {
+      0% { background-color: #007bff; }
+      50% { background-color: #00bfff; }
+      100% { background-color: #007bff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="inputScreen">
+    <h1>Sort Your Albums</h1>
+    <p>Enter each album on a separate line like so:</p>
+    <textarea id="freeformInput" >
+Cassie Marin - Metaphoria
+The Chisel - Nightmare
+Charli XCX - Brat
+Raveena - Butterflies
+Varijashree Venugopal - Vari
+Laetitia Sadier - Rooting for Love
+Freddie Gibbs - You only die once
+Thou - Umbilical
+Wormed - Omegon
+Opeth - The Last Will
+Sungazer - Night
+Avishai Cohen - Brightlight
+Laura Marling - Patterns in Repeat
+Nails - Burning
+JPEGMAFIA - Lay Down
+The Cure - Lost World
+Brittany Howard - What Now
+Bent Knee - Twenty Pills
+Nilufer Yanya - My method actor
+Kamasi washington - Fearless Movement
+Vitriol - Suffer and Become
+Nile - Underworld
+Joabe Reis - 028
+Benighted - Ekbom
+Rita Payas - De Camino
+Vampire Weekend - Only god
+Theophonos - Ashes
+Jesus Molina - Selah
+Lucy Rose - The Aint the way
+Melt-Banana - 3+5
+Kendrick Lamar - GNX
+Fontaines DC - Romance
+Pyrrhon - Exhaust
+Father John Misty - Mahashmashana
+Gigan - Anomalous
+Chat Pile - Cool World
+Immortal Bird - Sin querencia
+Blood Incantation - absolute elsewhere
+Tyler the Creator - Chromakopia
+Ariana Grande - Eternal Sunshine
+Beth Gibbons - Lives Outgrown
+Civerous - Maze Envy
+Xiu Xiu - Frank
+Geordie Greep - The New Sound
+Godspeed - No Title
+Defeated Sanity - Chronicles of Lunacy
+Foxing - Foxing
+Coco - 2
+Everything Everything - Mountainhead
+Infant Island - Obsidian Wreath
+The Smile - Wall of Eyes
+SLIFT - Ilion
+Hiatus Kaiyote - Love Heart
+Knoll - As Spoken
+Magdelena Bay - Imaginal Disk
+Willi Carlisle - Critterland
+Ulcerate - Cutting
+Willow - Empathogen
+Adrianne Lenker - Bright Future
+Malignancy - Discontinued</textarea>
+    <p>Press Go to begin sorting. If you refresh the page you will lose your progress!</p>
+    <button id="goButton">Go</button>
+  </div>
+
+  <div id="modal">
+    <p id="compareText">Which is greater?</p>
+    <div class="choices">
+      <button id="option1"></button>
+      <button id="option2"></button>
+    </div>
+  </div>
+
+  <div id="result">
+    <h1>Sorted Albums</h1>
+    <ol id="sortedList"></ol>
+  </div>
+
+  <script>
+    const inputScreen = document.getElementById('inputScreen');
+    const modal = document.getElementById('modal');
+    const resultScreen = document.getElementById('result');
+    const compareText = document.getElementById('compareText');
+    const option1 = document.getElementById('option1');
+    const option2 = document.getElementById('option2');
+    const sortedList = document.getElementById('sortedList');
+
+    document.getElementById('goButton').addEventListener('click', processInput);
+
+    let items = [];
+    let resolveComparison;
+
+    async function processInput() {
+      const freeformInput = document.getElementById('freeformInput').value;
+
+      if (freeformInput) {
+        items = freeformInput.split('\n').map(item => item.trim()).filter(item => item);
+      } else {
+        alert('Please provide input.');
+        return;
+      }
+
+      if (items.length < 2) {
+        alert('Not enough items to sort.');
+        return;
+      }
+
+      inputScreen.style.display = 'none';
+      modal.style.display = 'flex';
+      const sorted = await mergeSort(items);
+      displaySortedList(sorted);
+    }
+
+    async function mergeSort(array) {
+      if (array.length < 2) return array;
+
+      const mid = Math.floor(array.length / 2);
+      const left = await mergeSort(array.slice(0, mid));
+      const right = await mergeSort(array.slice(mid));
+
+      return await merge(left, right);
+    }
+
+    async function merge(left, right) {
+      const result = [];
+
+      while (left.length && right.length) {
+        if (await compare(left[0], right[0])) {
+          result.push(left.shift());
+        } else {
+          result.push(right.shift());
+        }
+      }
+
+      return result.concat(left, right);
+    }
+
+    async function compare(a, b) {
+      return new Promise(resolve => {
+        compareText.innerText = `Which is greater?`;
+        option1.innerText = a;
+        option2.innerText = b;
+
+        option1.onclick = () => resolveChoice(true, option1);
+        option2.onclick = () => resolveChoice(false, option2);
+
+        resolveComparison = resolve;
+      });
+    }
+
+    function resolveChoice(choice, button) {
+      button.style.animation = 'buttonFlash 0.3s';
+      setTimeout(() => {
+        button.style.animation = '';
+        resolveComparison(choice);
+      }, 300);
+    }
+
+    function displaySortedList(array) {
+      modal.style.display = 'none';
+      resultScreen.style.display = 'flex';
+      sortedList.innerHTML = '';
+      array.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        sortedList.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>

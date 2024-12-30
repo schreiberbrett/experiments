@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lisp Comment Formatter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Textarea to Lisp-Commented Output</h1>
+
+    <textarea id="inputText" placeholder="Enter your text here..."></textarea>
+    <button onclick="processText()">Format Text</button>
+
+    <h2>Formatted Output:</h2>
+    <pre id="outputText"></pre>
+
+    <script>
+        function processText() {
+            const input = document.getElementById("inputText").value;
+            const lines = input.split('\n');
+            const maxLength = 70;
+            let output = "";
+
+            lines.forEach(line => {
+                // Split long lines
+                while (line.length > maxLength) {
+                    output += "; " + line.slice(0, maxLength) + "\n";
+                    line = line.slice(maxLength);
+                }
+                // Append the remaining line or shorter lines
+                output += "; " + line + "\n";
+            });
+
+            document.getElementById("outputText").textContent = output;
+        }
+    </script>
+
+</body>
+</html>
+
