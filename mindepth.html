@@ -1,0 +1,448 @@
+<div>
+<p>function f(x) {</p>
+<textarea width="100%" id="code">
+return isPrime(x);
+</textarea>
+<p>}</p>
+</div>
+<p>
+Number of gates: <input id="n" type="number" min="1" max="5" value="3">
+
+<select id="renderStyle">
+	<option value="none">Render result only</option>
+	<option value="success">Render unique attempts</option>
+	<option value="all">Render all attempts</option>
+</select>
+<button onclick="go()">
+	Go
+</button>
+</p>
+<svg id="circuit"
+	width="100%" height="calc(100vh - 200px)" viewBox="0 0 1 1"
+	style="border: 1px solid black; display: block;"
+></svg>
+<div id="encountered"></div>
+<script>
+async function go() {
+	let code = document.getElementById('code').value;
+	eval(`function f(x) { ${code} }`);
+	console.log(f);
+	let n = document.getElementById('n').valueAsNumber;
+	let renderStyle = document.getElementById('renderStyle').value;
+	await main(f, n, renderStyle);
+}
+
+/**
+ * @param {function(number): boolean} f
+ * @param {number} n
+ * @param {'all' | 'success' | 'none'} renderStyle
+ */
+async function main(f, n, renderStyle) {
+	/* It is well known that for any Boolean function f: {0, 1}^n -> {0, 1}
+	there exists a circuit consisting of binary NAND gates which computes f.
+	Each NAND gate sits in a certain "layer" of the circuit. The last layer
+	contains exactly one gate whose output matches the output of f and thus
+	determines the "depth" of the circuit. Iterating one layer at a time and
+	halting when the desired output is reached synthesizes a circuit of minimum
+	depth for f.
+
+	The best place to describe this synthesis algorithm is in the middle of
+	iteration: */
+	async function iterate() {
+		/* The circuit-so-far is a jagged 2d array, 'layers', such that each
+		element of layers[l] is a gate in the lth layer of the circuit being
+		synthesized. This gate must have a left and right parent, both
+		identifiable by their layer and index within that layer. By definition
+		of circuit depth, a gate at layer l must have at least one parent from
+		layer l-1. Since NAND is commutative, we can designate the right parent
+		to always be from the previous layer.
+
+		To construct the next layer, pick every possible left parent from
+		layers 0 to l-1 and every possible right parent from layer l-1.
+		Initialize the current layer to the empty list. */
+
+		layers[l] = [];
+
+		let rightLayer = l-1;
+		for (let leftLayer = 0; leftLayer < l; leftLayer++) {
+
+			for (let i = 0; i < layers[leftLayer].length; i++) {
+				for (let j = 0; j < layers[rightLayer].length; j++) {
+					/* In this inner loop, every possible gate is considered.
+					Of course, one such gate will eventually  match the desired
+					output of f. So it must be made exact what it means for a
+					gate to match f. Every Boolean function on n inputs can be
+					uniquely described solely by its output bit for each of the
+					2^n combinations of input bits. By ordering these
+					combinations lexicographically, we obtain a 2^n sequence of
+					bits that uniquely identifies f. We can similarly consider
+					such a sequence of the input bits, and in fact of each
+					intermediate gate. Let this be the gate's "signature".
+					
+					Let each gate hold a reference to its signature, and
+					compute the signature of every gate being considered,
+					primarily to check if it matches f, but also to see if such
+					a signature has been seen before. If it has already been
+					seen, then that means the gate being considered is
+					redundant--there is a gate somewhere else in the circuit
+					being built which outputs the same sequence of bits.
+					
+					A signature of a gate is computed by applying the NAND
+					operation element-wise over the signatures of the parent
+					gates. */
+
+					let sig = new Array(2**n);
+					for (let k = 0; k < 2**n; k++) {
+						let left = layers[leftLayer][i].signature[k];
+						let right = layers[rightLayer][j].signature[k];
+						sig[k] =  !(left && right) ? 1 : 0;
+					}
+
+					/* Let's take a moment to construct the gate and add it to
+					the layer. Beyond its signature, a gate must store the
+					layer number of its left parent and the indices of both
+					parents. */
+
+					/** @typedef {Object} Gate
+					 * @property {number[]} signature
+					 * @property {number} leftLayer
+					 * @property {number} leftIndex
+					 * @property {number} rightIndex
+					 */
+
+					/** @type {Gate} */
+					let gate = {
+						signature: sig,
+						leftLayer: leftLayer,
+						leftIndex: i,
+						rightIndex: j
+					};
+
+					layers[l].push(gate);
+
+					/* Now is an appropriate time to render the circuit under
+					construction, if such behavior is desired. The definitions
+					of the variable and procedure used here are deferred to
+					later in this document. */
+
+					if (renderStyle === 'all') {
+						render();
+						/* Wait to see the SVG reder iteratively. */
+						await new Promise(r => setTimeout(r, 10));
+					}
+
+					/* If the signature of the gate being considered computes
+					f, then the circuit is complete, so exit the iteration.
+					It returns 'true' to indicate that a match was found while
+					iterating in this layer 'l'. We know that the gate matching
+					f will be the last element in this layer. */
+					if (matchesOutput(sig)) {
+						return true;
+					}
+
+					/* As mentioned before, a signature must be unique. Let's
+					now naively check to see if the signature has been seen
+					before. Here again we defer definition of helper functions.
+					*/
+					if (seen.has(sig)) {
+						/* If so, remove it from the layer. */
+						layers[l].pop();
+					} else {
+						/* Otherwise, add it to the set of seen signatures. */
+						seen.add(sig);
+
+						/* Render here if only successfully added gates should
+						be rendered. */
+						if (renderStyle === 'success') {
+							render();
+							await new Promise(r => setTimeout(r, 10));
+						}
+					}
+				}
+			}
+		}
+
+		/* Otherwise, no gate on this layer computes f.  This completes the
+		iterate procedure. */
+		return false;
+	}
+
+	/* The idea of a wires 'signature' avoids recomputing all combinations of
+	inputs when each new gate is added, plus it removes duplicates. This is a
+	helpful optimization, but it's made even better when used in conjunction
+	with a data structure that maintains the set of signatures, which is
+	defined here.
+
+	A naive implementation would be to maintain a list of lists of bits. But
+	since each list is of length 2**n, testing membership would require on the
+	order of m*2**n steps when there are m seen signatures.
+	
+	Instead, the set of signatures can be encoded as a binary trie of height
+	2**n such that each path encodes a signature. No matter how big the set
+	becomes, testing membership takes 2**n steps. */
+	class SignatureSet {
+		constructor() {
+			this.root = {};
+		}
+
+		add(signature) {
+			let node = this.root;
+			for (let bit of signature) {
+				if (!node[bit]) {
+					node[bit] = {};
+				}
+				node = node[bit];
+			}
+			node.isEnd = true;
+		}
+
+		has(signature) {
+			let node = this.root;
+			for (let bit of signature) {
+				if (!node[bit]) {
+					return false;
+				}
+				node = node[bit];
+			}
+			return node.isEnd === true;
+		}
+	}
+
+	/* Now let's think about what happens at the beginning of this circuit
+	synthesis algorithm. At first, no layers have been constructed. For
+	convenience, it helps to consider the input gates as the first layer, so
+	let's do that. Each cell in the first layer has no parents, but they do
+	each have a signature.
+
+	If n = 4, then layers[0] = [
+		{ signature: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1] },
+		{ signature: [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1] },
+		{ signature: [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1] },
+		{ signature: [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1] }
+	] */
+	
+	/** @type {Gate[][]} */
+	let layers = [[]];
+	for (let i = 0; i < n; i++) {
+		let sig = new Array(2**n);
+		for (let j = 0; j < 2**n; j++) {
+			sig[j] = (j >> i) & 1;
+		}
+		layers[0].push({ signature: sig });
+	}
+
+	layers[0].reverse();
+
+	/* Let's also take the opportunity to define the output signature, given
+	f. We can treat f as a Javascript function from number to boolean, and
+	accept that the circuit will only consider n lowest bits of the input. */
+	let outputSig = new Array(2**n);
+	for (let i = 0; i < 2**n; i++) {
+		outputSig[i] = f(i) ? 1 : 0;
+	}
+
+	/* The output may be entirely determined by one of the input bits. For
+	example, deciding if a boolean string represents an odd number can be done
+	by only looking at the least significant bit. This is a rare case, so what
+	to do in this situation is defined later.
+
+	Let's also take the opportunity to note that each of the input signatures
+	has been seen. */
+
+	let seen = new SignatureSet();
+
+	for (let i = 0; i < n; i++) {
+		let sig = layers[0][i].signature;
+		seen.add(sig);
+		if (matchesOutput(sig)) {
+			inputMatches(i);
+			return;
+		}
+	}
+
+	/* Otherwise, the output wire which computes f must come from a NAND gate
+	rather than directly from an input. So the iterate step can be performed,
+	which will eventually halt, since every boolean function f has a
+	corresponding circuit of some depth l. */
+
+	let l = 1;
+	while (true) {
+		let result = await iterate();
+
+		if (result) {
+			gateMatches();
+			return;
+		}
+		
+		l++;
+	}
+
+	/* There is no way to check if a signature matches the desired output
+	except by doing an element-wise comparison. */
+	function matchesOutput(sig) {
+		for (let i = 0; i < 2**n; i++) {
+			if (sig[i] !== outputSig[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+
+	/* In the common case that the output is determined by a gate, we must
+	distill the circuit-in-progress to just the necessary gates. The last gate
+	of the last layer is necessary, as are its parents, grandparents, and so
+	on. The tricky part is re-indexing the index references within each gate
+	since there will be many unused gates that get filtered out. The amount of
+	layers stays the same.
+
+	Initialize a list such that each element, corresponding to each layer, is a
+	mapping from old gate index to new gate index. If a gate's index is a key
+	in the map, then the gate is necessary.
+
+	A gate's new index is not known until the unneccesary gates are filtered
+	out. There is a period of time when a gate is known to be necessary, but
+	its new index is unknown, namely, when it is identified as a parent of a
+	necessary gate. During this period of uncertainty, set this key's alue to
+	-1.
+
+	Start by setting the last layer's last gate to be necessary and re-indexed
+	to 0. Mark its parent as necessary in its appropriate layer (the
+	immediately previous layer in the case of the right parent).
+
+	Starting in the second-to-last layer, append each gate to the new "trimmed"
+	layer if its old index is a key in the map. Its new index is the length of
+	the trimmed layer before appending. Mark its parents as necessary. When
+	every gate in the current layer has been considered, move one layer up.
+	Stop before the first layer is reached, since all inputs are necessary.
+	
+	Finally, go through the new layers and re-index parent references in each
+	gate. The gate objects can be updated directly, since the cleaned up
+	circuit will become the rendered circuit anyway. */
+	function gateMatches() {
+		/** @type {Map<number, number>[]} */
+		let reindex = layers.map(() => new Map());
+		reindex[layers.length - 1].set(
+			layers[layers.length - 1].length - 1,
+			-1
+		);
+
+		let newLayers = new Array(layers.length);
+		newLayers[0] = layers[0];
+
+		for (let layer = layers.length - 1; layer > 0; layer--) {
+			/** @type {Gate[]} */
+			let newLayer = [];
+
+			for (let i = 0; i < layers[layer].length; i++) {
+				if (reindex[layer].has(i)) {
+					let gate = layers[layer][i];
+					reindex[layer].set(i, newLayer.length);
+					newLayer.push(gate);
+
+					reindex[gate.leftLayer].set(gate.leftIndex, -1);
+					reindex[layer - 1].set(gate.rightIndex, -1);
+				}
+			}
+
+			newLayers[layer] = newLayer;
+		}
+
+		for (let layer = 1; layer < layers.length; layer++) {
+			for (let gate of newLayers[layer]) {
+				if (gate.leftLayer > 0) {
+					gate.leftIndex = reindex[gate.leftLayer].get(gate.leftIndex);
+				}
+
+				if (layer - 1 > 0) {
+					gate.rightIndex = reindex[layer - 1].get(gate.rightIndex);
+				}
+			}
+		}
+
+		layers = newLayers;
+		render();
+	}
+
+	/* Now we can define how a circuit gets rendered into the SVG element. We
+	assume a simple viewport from (0, 0) to (1, 1).
+	
+	First, a warm-up. There is a nice way to place k equally spaced points on a
+	number line from 0 to 1. For example, when k = 6:
+
+	0  1/7  2/7  3/7  4/7  5/7  6/7  1
+	|--(+)--(+)--(+)--(+)--(+)--(+)--|
+
+	That is, the ith point out of k points is placed at (i+1)/(k+1).
+
+	This can be generalized to two dimensions and is the basis for how to
+	render the circuit: allocate a y-coordinate for each layer using the above
+	strategy, then for each layer, allocate an x-coordinate for each cell in
+	the same way. Each gate can be represented as a black circle of small
+	radius (say, 0.004) centered at the appropriate coordinates. The wires can
+	be represented as black lines (say, of thickness 0.001) anchored at each
+	child coordinate and parent coordinate.
+	
+	For ease of implementation, we can initialize the inner HTML of the svg to
+	the empty string and gradually add each point and line in any z-axis order,
+	since everything is solid black. The first layer must be handled as a
+	special case because those "gates" do not have parent wires. */
+	function render() {
+		let svg = document.getElementById('circuit');
+		let html = '';
+
+		/* First, render the first layer. */
+		for (let i = 0; i < n; i++) {
+			let x = (i+1)/(n+1);
+			let y = 1/(layers.length+1);
+			html += `<circle cx="${x}" cy="${y}" r="0.004" fill="red" />`;
+		}
+
+		/* Now render the rest of the layers. */
+		for (let l = 1; l < layers.length; l++) {
+			for (let i = 0; i < layers[l].length; i++) {
+				let x = (i+1)/(layers[l].length+1);
+				let y = (l+1)/(layers.length+1);
+				let gate = layers[l][i];
+				html += `<circle cx="${x}" cy="${y}" r="0.004" fill="black" />`;
+				let leftX = (gate.leftIndex+1)/(layers[gate.leftLayer].length+1);
+				let leftY = (gate.leftLayer+1)/(layers.length+1);
+				html += `<line
+					stroke="black" stroke-width="0.001"
+					x1="${leftX}" y1="${leftY}"
+					x2="${x}"     y2="${y}"
+				/>`;
+				let rightX = (gate.rightIndex+1)/(layers[l-1].length+1);
+				let rightY = ((l-1)+1)/(layers.length+1);
+				html += `<line
+					stroke="black" stroke-width="0.001"
+					x1="${rightX}" y1="${rightY}"
+					x2="${x}"      y2="${y}"
+				/>`;
+			}
+		}
+
+		svg.innerHTML = html;
+	}
+
+
+
+
+
+	function inputMatches(i) {
+		alert('The output is determined by input ' + i);
+	}
+}
+
+function isPrime(x) {
+	if (x < 2) {
+		return false;
+	}
+	for (let i = 2; i*i <= x; i++) {
+		if (x % i === 0) {
+			return false;
+		}
+	}
+	return true;
+}
+</script>
