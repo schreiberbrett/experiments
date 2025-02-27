@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- This document implements an peculiar algorithm which may be useful for
+analyzing two-dimensional data.
+
+The fundamental algorithm is as follows:
+
+Given:
+1. an MxN array, hereafter known as the original array.
+2. a comparison function to order any two elements of the array.
+3. a "filler" element
+
+Returns:
+A 2M x 2N array where
+- elements between (0,0) and (M - 1, N - 1) are the original array elements
+- elements between (M,N) and (2M - 1, 2N - 1) are the "filler" element
+- forall 0 <= i < M, elements between (i, N) and (i, 2N - 1) are the
+  elements of (i, 0) to (i, N - 1) sorted by the comparison function.
+- forall 0 <= j < N, elements between (M, j) and (2M - 1, j) are the
+  elements of (0, j) to (M - 1, j) sorted by the comparison function.
+-->
+<script>
+// @ts-check
+/**
+ * @param {T[][]} array
+ * @param {(a: T, b: T) => number} compare
+ * @param {T} filler
+ * @returns {T[][]}
+ * @template T
+ */
+function algorithm(array, compare, filler) {
+    const M = array.length;
+    const N = array[0].length;
+    const result = Array.from({ length: 2 * M }, () => Array(2 * N).fill(filler));
+    for (let i = 0; i < M; i++) {
+        for (let j = 0; j < N; j++) {
+            result[i][j] = array[i][j];
+        }
+    }
+    for (let i = 0; i < M; i++) {
+        const row = array[i].slice().sort(compare);
+        for (let j = 0; j < N; j++) {
+            result[i][j + N] = row[j];
+        }
+    }
+    for (let j = 0; j < N; j++) {
+        const column = array.map(row => row[j]).slice().sort(compare);
+        for (let i = 0; i < M; i++) {
+            result[i + M][j] = column[i];
+        }
+    }
+    return result;
+}
+</script>
+
+<!-- This algorithm is a good candidate to use on images, where images are
+treated as a 2D array of 4-tuples of RGBA values, the comparison function
+compares on one of red, green, or blue value, and the filler is a 4-tuple of
+transparent black. -->
+
+<input type="file" id="file" accept="image/*" onChange="render()" />
+
+<div>
+    <input
+        type="radio" name="color" onChange="render()"
+        id="red" value="red" checked
+    />
+    <label for="red">Red</label>
+</div>
+<div>
+    <input
+        type="radio" name="color" onChange="render()"
+        id="green" value="green"
+    />
+    <label for="green">Green</label>
+</div>
+<div>
+    <input
+        type="radio" name="color" onChange="render()"
+        id="blue" value="blue"
+    />
+    <label for="blue">Blue</label>
+</div>
+<div>
+    <input
+        type="radio" name="color" onChange="render()"
+        id="alpha" value="alpha"
+    />
+    <label for="alpha">Alpha</label>
+</div>
+
+
+<canvas id="output"></canvas>
+
+<!-- Before implementing render(), here's a helper function for converting a
+file of type image into a 2d array of 4-tuples. -->
+<script>
+/**
+ * @param {File} file
+ * @returns {Promise<[number, number, number, number][][]>}
+ */
+async function fileToArray(file) {
+    const image = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+    if (!context) return [];
+    context.drawImage(image, 0, 0);
+    const imageData = context.getImageData(0, 0, image.width, image.height);
+    const data = imageData.data;
+    /** @type {[number, number, number, number][][]} */
+    const array = [];
+    for (let i = 0; i < data.length; i += 4) {
+        const row = Math.floor(i / 4 / imageData.width);
+        const column = (i / 4) % imageData.width;
+        if (!array[row]) array[row] = [];
+        array[row][column] = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+    }
+    return array;
+}
+</script>
+
+<!-- Now, render() can be implemented. -->
+<script>
+async function render() {
+    const file = /** @type {HTMLInputElement} */ (document.getElementById("file")).files?.[0];
+    if (!file) return;
+    const array = await fileToArray(file);
+    const color = /** @type {HTMLInputElement} */ (document.querySelector("input[name=color]:checked")).value;
+    const compare = (
+        color === "red"   ? (a, b) => a[0] - b[0] :
+        color === "green" ? (a, b) => a[1] - b[1] :
+        color === "blue"  ? (a, b) => a[2] - b[2] :
+        /* === "alpha" */   (a, b) => a[3] - b[3]
+    );
+    const filler = [0, 0, 0, 0];
+    const result = algorithm(array, compare, filler);
+    const canvas = /** @type {HTMLCanvasElement} */ (
+        document.getElementById("output")
+    );
+    canvas.width = result[0].length;
+    canvas.height = result.length;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const imageData = context.createImageData(canvas.width, canvas.height);
+    for (let i = 0; i < result.length; i++) {
+        for (let j = 0; j < result[i].length; j++) {
+            imageData.data.set(result[i][j], (i * canvas.width + j) * 4);
+        }
+    }
+    context.putImageData(imageData, 0, 0);
+}
+</script>
+
+<style>
+canvas {
+    max-width: 100%;
+}
+</style>
