@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Results Visualization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .match-group {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .match-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .input-row label {
+            flex: 1;
+        }
+        .input-row input {
+            width: 60px;
+            padding: 5px;
+        }
+        svg {
+            border: 1px solid #eee;
+            margin: 20px auto;
+            display: block;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Match Results Visualization</h1>
+        
+        <div class="input-grid">
+            <div class="match-group">
+                <div class="match-title">A vs B</div>
+                <div class="input-row">
+                    <label for="ab_wins">A wins:</label>
+                    <input type="number" id="ab_wins" min="0" value="0">
+                </div>
+                <div class="input-row">
+                    <label for="ab_draws">Draws:</label>
+                    <input type="number" id="ab_draws" min="0" value="0">
+                </div>
+                <div class="input-row">
+                    <label for="ab_losses">B wins:</label>
+                    <input type="number" id="ab_losses" min="0" value="0">
+                </div>
+            </div>
+            
+            <div class="match-group">
+                <div class="match-title">B vs C</div>
+                <div class="input-row">
+                    <label for="bc_wins">B wins:</label>
+                    <input type="number" id="bc_wins" min="0" value="0">
+                </div>
+                <div class="input-row">
+                    <label for="bc_draws">Draws:</label>
+                    <input type="number" id="bc_draws" min="0" value="0">
+                </div>
+                <div class="input-row">
+                    <label for="bc_losses">C wins:</label>
+                    <input type="number" id="bc_losses" min="0" value="0">
+                </div>
+            </div>
+            
+            <div class="match-group">
+                <div class="match-title">A vs C</div>
+                <div class="input-row">
+                    <label for="ac_wins">A wins:</label>
+                    <input type="number" id="ac_wins" min="0" value="0">
+                </div>
+                <div class="input-row">
+                    <label for="ac_draws">Draws:</label>
+                    <input type="number" id="ac_draws" min="0" value="0">
+                </div>
+                <div class="input-row">
+                    <label for="ac_losses">C wins:</label>
+                    <input type="number" id="ac_losses" min="0" value="0">
+                </div>
+            </div>
+        </div>
+        
+        <svg id="graph" width="500" height="500"></svg>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f44336;"></div>
+                <span>Player A</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #2196F3;"></div>
+                <span>Player B</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4CAF50;"></div>
+                <span>Player C</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #9E9E9E;"></div>
+                <span>Draws</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Player colors
+        const playerColors = {
+            A: "#f44336", // Red
+            B: "#2196F3", // Blue
+            C: "#4CAF50", // Green
+            draw: "#9E9E9E" // Gray
+        };
+        
+        // Edge colors (50/50 blend of player colors)
+        const edgeColors = {
+            AB: "#B76FB7", // Red-Blue blend
+            BC: "#33B29F", // Blue-Green blend
+            AC: "#AB9143"  // Red-Green blend
+        };
+        
+        // Get all input elements
+        const inputs = document.querySelectorAll('input');
+        
+        // Add event listeners to all inputs
+        inputs.forEach(input => {
+            input.addEventListener('input', updateGraph);
+        });
+        
+        // Initialize the graph
+        updateGraph();
+        
+        function updateGraph() {
+            // Get values from inputs
+            const ab_wins = parseInt(document.getElementById('ab_wins').value) || 0;
+            const ab_draws = parseInt(document.getElementById('ab_draws').value) || 0;
+            const ab_losses = parseInt(document.getElementById('ab_losses').value) || 0;
+            
+            const bc_wins = parseInt(document.getElementById('bc_wins').value) || 0;
+            const bc_draws = parseInt(document.getElementById('bc_draws').value) || 0;
+            const bc_losses = parseInt(document.getElementById('bc_losses').value) || 0;
+            
+            const ac_wins = parseInt(document.getElementById('ac_wins').value) || 0;
+            const ac_draws = parseInt(document.getElementById('ac_draws').value) || 0;
+            const ac_losses = parseInt(document.getElementById('ac_losses').value) || 0;
+            
+            // Get SVG element
+            const svg = document.getElementById('graph');
+            svg.innerHTML = '';
+            
+            // Graph parameters
+            const width = 500;
+            const height = 500;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = 200;
+            
+            // Calculate vertex positions
+            const vertices = {
+                A: { x: centerX, y: centerY - radius * 0.87 },  // Top
+                B: { x: centerX - radius * 0.75, y: centerY + radius * 0.5 }, // Bottom left
+                C: { x: centerX + radius * 0.75, y: centerY + radius * 0.5 }  // Bottom right
+            };
+            
+            // Draw edges
+            drawEdge(svg, vertices.A, vertices.B, ab_wins, ab_draws, ab_losses, 'A', 'B');
+            drawEdge(svg, vertices.B, vertices.C, bc_wins, bc_draws, bc_losses, 'B', 'C');
+            drawEdge(svg, vertices.A, vertices.C, ac_wins, ac_draws, ac_losses, 'A', 'C');
+            
+            // Draw vertices
+            for (let player in vertices) {
+                const vertex = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                vertex.setAttribute('cx', vertices[player].x);
+                vertex.setAttribute('cy', vertices[player].y);
+                vertex.setAttribute('r', 20);
+                vertex.setAttribute('fill', playerColors[player]);
+                vertex.setAttribute('stroke', '#000');
+                vertex.setAttribute('stroke-width', '2');
+                svg.appendChild(vertex);
+                
+                // Add player label
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', vertices[player].x);
+                text.setAttribute('y', vertices[player].y + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', 'white');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = player;
+                svg.appendChild(text);
+            }
+        }
+        
+        function drawEdge(svg, v1, v2, p1Wins, draws, p2Wins, p1, p2) {
+            const edgeId = p1 + p2;
+            
+            // Draw the base edge line
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', v1.x);
+            line.setAttribute('y1', v1.y);
+            line.setAttribute('x2', v2.x);
+            line.setAttribute('y2', v2.y);
+            line.setAttribute('stroke', edgeColors[edgeId]);
+            line.setAttribute('stroke-width', '3');
+            svg.appendChild(line);
+            
+            // Calculate direction vector
+            const dx = v2.x - v1.x;
+            const dy = v2.y - v1.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            
+            // Create beads
+            const totalBeads = p1Wins + draws + p2Wins;
+            if (totalBeads === 0) return;
+            
+            const beadRadius = 6;
+            const spacing = Math.min(30, length / (totalBeads + 1)); // Adjust spacing based on number of beads
+            
+            // Unit direction vector
+            const unitDx = dx / length;
+            const unitDy = dy / length;
+            
+            // Perpendicular unit vector for offset
+            const perpDx = -unitDy;
+            const perpDy = unitDx;
+            
+            // Draw each bead
+            let currentIndex = 1;
+            
+            // Draw player 1 win beads
+            for (let i = 0; i < p1Wins; i++) {
+                const percent = currentIndex / (totalBeads + 1);
+                const posX = v1.x + dx * percent;
+                const posY = v1.y + dy * percent;
+                
+                // Add offset to keep beads from overlapping
+                const offset = (i % 2 === 0) ? 12 : -12;
+                const offsetX = posX + perpDx * offset;
+                const offsetY = posY + perpDy * offset;
+                
+                drawBead(svg, offsetX, offsetY, beadRadius, playerColors[p1]);
+                currentIndex++;
+            }
+            
+            // Draw draw beads
+            for (let i = 0; i < draws; i++) {
+                const percent = currentIndex / (totalBeads + 1);
+                const posX = v1.x + dx * percent;
+                const posY = v1.y + dy * percent;
+                
+                // Add offset to keep beads from overlapping
+                const offset = (i % 2 === 0) ? 12 : -12;
+                const offsetX = posX + perpDx * offset;
+                const offsetY = posY + perpDy * offset;
+                
+                drawBead(svg, offsetX, offsetY, beadRadius, playerColors.draw);
+                currentIndex++;
+            }
+            
+            // Draw player 2 win beads
+            for (let i = 0; i < p2Wins; i++) {
+                const percent = currentIndex / (totalBeads + 1);
+                const posX = v1.x + dx * percent;
+                const posY = v1.y + dy * percent;
+                
+                // Add offset to keep beads from overlapping
+                const offset = (i % 2 === 0) ? 12 : -12;
+                const offsetX = posX + perpDx * offset;
+                const offsetY = posY + perpDy * offset;
+                
+                drawBead(svg, offsetX, offsetY, beadRadius, playerColors[p2]);
+                currentIndex++;
+            }
+        }
+        
+        function drawBead(svg, x, y, radius, color) {
+            const bead = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            bead.setAttribute('cx', x);
+            bead.setAttribute('cy', y);
+            bead.setAttribute('r', radius);
+            bead.setAttribute('fill', color);
+            bead.setAttribute('stroke', '#000');
+            bead.setAttribute('stroke-width', '1');
+            svg.appendChild(bead);
+        }
+    </script>
+</body>
+</html>
