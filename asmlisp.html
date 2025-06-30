@@ -1,0 +1,19 @@
+<!doctype html>
+<script>
+/*
+This is a redo of www.github.com/schreiberbrett/ASMLisp.
+*/
+
+/**
+ * Gets a character using a0 and a7, so don't use those registers.
+ * 
+ * @param char {string} a character literal
+ */
+function printCharLiteral(char) {
+    return [
+        'li a7 11',
+        `li a0, '${char}'`,
+        'ecall'
+    ].join('\n');
+}
+</script>

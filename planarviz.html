@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z3 SMT Solver Example</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .example-section {
+            margin: 30px 0;
+            padding: 25px;
+            border: 2px solid #e0e7ff;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+            transition: all 0.3s ease;
+        }
+
+        .example-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        h2 {
+            color: #4f46e5;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .problem {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #f59e0b;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            min-height: 40px;
+        }
+
+        .result.success {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            color: #065f46;
+        }
+
+        .result.error {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            color: #991b1b;
+        }
+
+        .result.info {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
+            color: #1e40af;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧮 Z3 SMT Solver Demo</h1>
+
+        <div class="status" id="status">
+            <div class="loading"></div>
+            Loading Z3 solver...
+        </div>
+
+        <div class="example-section">
+            <h2>🔢 Linear Arithmetic</h2>
+            <div class="problem">
+                <strong>Problem:</strong> Find integers x and y such that:<br>
+                • x + y = 10<br>
+                • x - y = 4<br>
+                • x > 0 and y > 0
+            </div>
+            <button onclick="solveLinear()" id="linear-btn" disabled>Solve Linear System</button>
+            <div class="result" id="linear-result"></div>
+        </div>
+
+        <div class="example-section">
+            <h2>🎯 Optimization Problem</h2>
+            <div class="problem">
+                <strong>Problem:</strong> Maximize x + y subject to:<br>
+                • 2x + 3y ≤ 12<br>
+                • x + 2y ≤ 8<br>
+                • x ≥ 0, y ≥ 0
+            </div>
+            <button onclick="solveOptimization()" id="opt-btn" disabled>Find Optimal Solution</button>
+            <div class="result" id="opt-result"></div>
+        </div>
+
+        <div class="example-section">
+            <h2>🧩 Logic Puzzle</h2>
+            <div class="problem">
+                <strong>Problem:</strong> Three friends (Alice, Bob, Charlie) have different ages.<br>
+                • Alice is older than Bob<br>
+                • Charlie is younger than Alice<br>
+                • Bob is not the youngest<br>
+                • All ages are between 20 and 30
+            </div>
+            <button onclick="solvePuzzle()" id="puzzle-btn" disabled>Solve Logic Puzzle</button>
+            <div class="result" id="puzzle-result"></div>
+        </div>
+
+        <div class="example-section">
+            <h2>🔐 Cryptarithmetic</h2>
+            <div class="problem">
+                <strong>Problem:</strong> SEND + MORE = MONEY<br>
+                Each letter represents a unique digit (0-9)<br>
+                Leading digits cannot be zero
+            </div>
+            <button onclick="solveCryptarithmetic()" id="crypto-btn" disabled>Crack the Code</button>
+            <div class="result" id="crypto-result"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { init } from 'https://cdn.jsdelivr.net/npm/z3-solver@4.15.1/build/browser.js';
+
+        let Z3, Context, solver;
+
+        async function initializeZ3() {
+            try {
+                const api = await init();
+                Z3 = api;
+                Context = Z3.Context('main');
+
+                document.getElementById('status').innerHTML = '✅ Z3 solver ready!';
+                document.getElementById('status').style.color = '#10b981';
+
+                // Enable all buttons
+                document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Failed to load Z3: ' + error.message;
+                document.getElementById('status').style.color = '#ef4444';
+            }
+        }
+
+        window.solveLinear = async function() {
+            const resultDiv = document.getElementById('linear-result');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Solving...';
+
+            try {
+                const { Solver, Int, And } = Context;
+                const solver = new Solver();
+
+                const x = Int.const('x');
+                const y = Int.const('y');
+
+                // Add constraints
+                solver.add(x.add(y).eq(10));  // x + y = 10
+                solver.add(x.sub(y).eq(4));   // x - y = 4
+                solver.add(x.gt(0));          // x > 0
+                solver.add(y.gt(0));          // y > 0
+
+                const result = await solver.check();
+
+                if (result === 'sat') {
+                    const model = solver.model();
+                    const xVal = model.eval(x).toString();
+                    const yVal = model.eval(y).toString();
+
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Solution found!\nx = ${xVal}\ny = ${yVal}\n\nVerification:\n${xVal} + ${yVal} = ${parseInt(xVal) + parseInt(yVal)}\n${xVal} - ${yVal} = ${parseInt(xVal) - parseInt(yVal)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ No solution exists for this system of equations.';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        };
+
+        window.solveOptimization = async function() {
+            const resultDiv = document.getElementById('opt-result');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Finding optimal solution...';
+
+            try {
+                const { Optimize, Int, And } = Context;
+                const opt = new Optimize();
+
+                const x = Int.const('x');
+                const y = Int.const('y');
+
+                // Add constraints
+                opt.add(x.mul(2).add(y.mul(3)).le(12));  // 2x + 3y <= 12
+                opt.add(x.add(y.mul(2)).le(8));          // x + 2y <= 8
+                opt.add(x.ge(0));                         // x >= 0
+                opt.add(y.ge(0));                         // y >= 0
+
+                // Maximize x + y
+                opt.maximize(x.add(y));
+
+                const result = await opt.check();
+
+                if (result === 'sat') {
+                    const model = opt.model();
+                    const xVal = parseInt(model.eval(x).toString());
+                    const yVal = parseInt(model.eval(y).toString());
+                    const objective = xVal + yVal;
+
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Optimal solution found!\nx = ${xVal}\ny = ${yVal}\nMaximum value of x + y = ${objective}\n\nConstraint verification:\n2(${xVal}) + 3(${yVal}) = ${2*xVal + 3*yVal} ≤ 12 ✓\n${xVal} + 2(${yVal}) = ${xVal + 2*yVal} ≤ 8 ✓`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ No feasible solution exists.';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        };
+
+        window.solvePuzzle = async function() {
+            const resultDiv = document.getElementById('puzzle-result');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Solving logic puzzle...';
+
+            try {
+                const { Solver, Int, And, Distinct } = Context;
+                const solver = new Solver();
+
+                const alice = Int.const('alice');
+                const bob = Int.const('bob');
+                const charlie = Int.const('charlie');
+
+                // Age constraints (20-30)
+                solver.add(And(alice.ge(20), alice.le(30)));
+                solver.add(And(bob.ge(20), bob.le(30)));
+                solver.add(And(charlie.ge(20), charlie.le(30)));
+
+                // Different ages
+                solver.add(Distinct(alice, bob, charlie));
+
+                // Logic constraints
+                solver.add(alice.gt(bob));           // Alice is older than Bob
+                solver.add(charlie.lt(alice));       // Charlie is younger than Alice
+                solver.add(bob.gt(charlie));         // Bob is not the youngest (Bob > Charlie)
+
+                const result = await solver.check();
+
+                if (result === 'sat') {
+                    const model = solver.model();
+                    const aliceAge = parseInt(model.eval(alice).toString());
+                    const bobAge = parseInt(model.eval(bob).toString());
+                    const charlieAge = parseInt(model.eval(charlie).toString());
+
+                    const ages = [
+                        {name: 'Alice', age: aliceAge},
+                        {name: 'Bob', age: bobAge},
+                        {name: 'Charlie', age: charlieAge}
+                    ].sort((a, b) => b.age - a.age);
+
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Solution found!\n\nAges (oldest to youngest):\n${ages.map((p, i) => `${i+1}. ${p.name}: ${p.age} years old`).join('\n')}\n\nConstraint verification:\n• Alice (${aliceAge}) > Bob (${bobAge}) ✓\n• Charlie (${charlieAge}) < Alice (${aliceAge}) ✓\n• Bob (${bobAge}) > Charlie (${charlieAge}) ✓`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ No solution exists for this puzzle.';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        };
+
+        window.solveCryptarithmetic = async function() {
+            const resultDiv = document.getElementById('crypto-result');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Cracking the cryptarithmetic puzzle... This may take a moment.';
+
+            try {
+                const { Solver, Int, And, Distinct } = Context;
+                const solver = new Solver();
+
+                // Create variables for each letter
+                const S = Int.const('S'), E = Int.const('E'), N = Int.const('N'), D = Int.const('D');
+                const M = Int.const('M'), O = Int.const('O'), R = Int.const('R'), Y = Int.const('Y');
+
+                const letters = [S, E, N, D, M, O, R, Y];
+
+                // Each letter is a digit 0-9
+                letters.forEach(letter => {
+                    solver.add(And(letter.ge(0), letter.le(9)));
+                });
+
+                // All letters are distinct
+                solver.add(Distinct(...letters));
+
+                // Leading digits cannot be zero
+                solver.add(S.neq(0));  // SEND
+                solver.add(M.neq(0));  // MORE and MONEY
+
+                // SEND + MORE = MONEY
+                const send = S.mul(1000).add(E.mul(100)).add(N.mul(10)).add(D);
+                const more = M.mul(1000).add(O.mul(100)).add(R.mul(10)).add(E);
+                const money = M.mul(10000).add(O.mul(1000)).add(N.mul(100)).add(E.mul(10)).add(Y);
+
+                solver.add(send.add(more).eq(money));
+
+                const result = await solver.check();
+
+                if (result === 'sat') {
+                    const model = solver.model();
+                    const values = {};
+
+                    ['S', 'E', 'N', 'D', 'M', 'O', 'R', 'Y'].forEach(letter => {
+                        values[letter] = parseInt(model.eval(eval(letter)).toString());
+                    });
+
+                    const sendNum = values.S * 1000 + values.E * 100 + values.N * 10 + values.D;
+                    const moreNum = values.M * 1000 + values.O * 100 + values.R * 10 + values.E;
+                    const moneyNum = values.M * 10000 + values.O * 1000 + values.N * 100 + values.E * 10 + values.Y;
+
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Cryptarithmetic solved!\n\nLetter to digit mapping:\nS=${values.S}, E=${values.E}, N=${values.N}, D=${values.D}\nM=${values.M}, O=${values.O}, R=${values.R}, Y=${values.Y}\n\nVerification:\n  SEND = ${sendNum}\n+ MORE = ${moreNum}\n-------\n MONEY = ${moneyNum}\n\n${sendNum} + ${moreNum} = ${moneyNum} ✓`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ No solution exists for this cryptarithmetic puzzle.';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        };
+
+        // Initialize Z3 when the page loads
+        initializeZ3();
+    </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<body />
+<script>
+// @ts-check
+/*
+Every undirected graph has an associated crosing number "c", which means that
+every layout (or drawing, or embedding in 2D) must have at least "c" crossings.
+
+A given graph's crossing number is not easy to compute. Nevertheless I have
+decided to write an exhaustive search algorithm to find the crossing number for
+any given graph. In short, this algorithm will look at every possible
+arrangement of the graph's n vertices over an n*n grid, displaying each edge as
+a line segment (that is, without curving the edge). This finite subset of
+layouts is sufficient to search through. Later it will later be proved that
+this subset must have at least one drawing with the desired minimum "c"
+crossings.
+
+This algorithm is exponentially slow, but I don't care. I am frustrated by
+heuristic software like Graphviz and Mermaid.js that often generate unoptimal
+layouts. The algorithm described here will always find the minimum and display
+the corresponding layout. In fact, I will make it display its search process.
+
+It turns out that this problem is very similar to the N-Queens problem, which
+asks for a given N, if it's possible to arrange N queens on an N*N chessboard
+such that no queen is attacking another. It turns out that finding such an
+arrangement is always possible, and it can be done with the following
+recursive backtracking algorithm, using a base case and a recursive case.
+
+N-Queens algorithm base case:
+-----------------------------
+As a base case, suppose we are given an NxN chessboard and zero queens to
+place. Then the algorithm can simply return "true", because no more queens
+need to be placed on the given chessboard.
+
+N-Queens algorithm recursive case:
+----------------------------------
+Suppose now we are asked to place k queens on the chessboard for some k > 0.
+First, consider all the available squares a queen can be placed. That, is
+compute the set of squares that are not attacked by any queens that have
+already been placed. If this set is empty, then return "false", because no more
+queens can be placed on the chessboard.
+
+Otherwise, when the set of available squ,ares is nonempty, then choose one and
+place a queen there. Recur on the current chessboard with k-1 queens. This
+recursive call will either suceed with "true" or fail with "false". If it
+succeeds, it will leave the chessboard with k queens placed on it, so we can
+succeed, too. If it fails, then place the queen on another available square and
+recur again. As above, if we run out of available squares, then there is no way to
+place the k queens on the chessboard, so return "false".
+
+More can be said about how exactly to compute the set of available tiles. For
+one, each column of the chessboard will hold exactly one queen, so the algorithm
+can avoid work by only considering that column's available squares. So too will
+there be shortcuts for the analogous recursive backtracking algorithm for
+computing a graph's crossing number.
+
+Now we turn our attention to describing the recursive backtracking algorithm
+for computing a graph's crossing number (and additionally displaying its steps
+and solution). The task is to place n vertices on an n*n grid in such a way
+that minimizes the number of edge crossings. Thus although the task is similar
+in that there are N objects that are placed within N*N points, in this case a
+minimual solution is desired rather than simply a valid placement.
+
+Crossing number algorithm base case:
+------------------------------------
+As a base case, suppose we are given an N*N plane with some number of points
+and line segments already placed, where there are 0 vertices left to place.
+Thus the current plane, with its associated number of crossing present, is in
+some sense minimal--no additional crossings need to be introduced, because
+there are no vertices left to place. The algorithm can halt with the current
+number of crossings.
+
+Crossing number algorithm recursive case:
+-----------------------------------------
+Now suppose there are still k > 0 vertices left to add to the N*N grid. Start
+by computing every place that first unplaced vertex can go, since of course two
+vertices should not occupy the same point. Additionally, a vertex should never
+occupy a point which causes two (colinear) line segments to overlap. A vertex
+should also be disqualified if adding it creates more crossings than the
+minimum seen so far.
+*/
+
+let go = document.createElement('button');
+go.innerText = 'Go!';
+
+// Add go to DOM
+document.body.appendChild(go);
+
+go.onclick = () => document.body.innerHTML += `<p>Yo yo!</p>`
+
+
+</script>

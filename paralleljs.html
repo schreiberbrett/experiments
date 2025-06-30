@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<script>
+// @ts-check
+
+/*
+Does Javascript code know its own structure?
+*/
+
+let some_fn = (x) => x + 3;
+
+console.log(some_fn.toString());
+// > (x) => x + 3
+
+/*
+Yes, it does!
+
+Can I pass some_fn along with, say, 21, to a web worker for it to evaluate?
+
+Here is an adapter from Web Workers to continuations.
+*/
+
+function runAsync(scope, fn, k) {
+    const workerScript = `self.postMessage((${fn.toString()})());`;
+    const blob = new Blob([workerScript], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+
+    worker.onmessage = (event) => {
+        k(event.data)
+    }
+}
+
+// runAsync(() => some_fn(21), console.log);
+// > ReferenceError: some_fn is not defined
+
+/*
+It doesn't quite work.
+*/
+
+let f = () => 10;
+let g = () => f() + 1;
+
+console.log(g.toString());
+// () => f() + 1
+
+
+
+</script>

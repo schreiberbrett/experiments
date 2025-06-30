@@ -1,0 +1,126 @@
+<script>
+function computePrimeFactorizationAnalysis() {
+    // Helper function to check if a BigInt is prime
+    function isPrime(n) {
+        if (n <= 1n) return false;
+        if (n <= 3n) return true;
+        if (n % 2n === 0n || n % 3n === 0n) return false;
+        
+        let i = 5n;
+        while (i * i <= n) {
+            if (n % i === 0n || n % (i + 2n) === 0n) return false;
+            i += 6n;
+        }
+        return true;
+    }
+    
+    // Helper function to get prime factorization of a number
+    function getPrimeFactors(n) {
+        const factors = [];
+        let num = n;
+        
+        // Check for factor 2
+        while (num % 2n === 0n) {
+            factors.push(2n);
+            num = num / 2n;
+        }
+        
+        // Check for odd factors from 3 onwards
+        let factor = 3n;
+        while (factor * factor <= num) {
+            while (num % factor === 0n) {
+                factors.push(factor);
+                num = num / factor;
+            }
+            factor += 2n;
+        }
+        
+        // If num is still greater than 1, it's a prime factor
+        if (num > 1n) {
+            factors.push(num);
+        }
+        
+        return factors;
+    }
+    
+    // Helper function to convert BigInt to binary string
+    function toBinaryString(n) {
+        return n.toString(2);
+    }
+    
+    // Helper function to get representation string
+    function getRepresentation(factors) {
+        return factors.map(factor => toBinaryString(factor)).join('#');
+    }
+    
+    // Generate primes up to a given limit using Sieve of Eratosthenes
+    function generatePrimes(limit) {
+        const primes = new Set();
+        const sieve = new Array(Number(limit) + 1).fill(true);
+        sieve[0] = sieve[1] = false;
+        
+        for (let i = 2; i * i <= limit; i++) {
+            if (sieve[i]) {
+                for (let j = i * i; j <= limit; j += i) {
+                    sieve[j] = false;
+                }
+            }
+        }
+        
+        for (let i = 2; i <= limit; i++) {
+            if (sieve[i]) {
+                primes.add(BigInt(i));
+            }
+        }
+        
+        return primes;
+    }
+    
+    const results = [];
+    
+    for (let n = 2; n <= 100; n++) {
+        console.log(`Processing n = ${n}...`);
+        
+        // Compute k = 2^n - 1
+        const k = (2n ** BigInt(n)) - 1n;
+        
+        // For very large k values, we need to be smart about factorization
+        // We'll limit our search to reasonable bounds to avoid infinite computation
+        const searchLimit = k > 1000000n ? 1000000n : k;
+        
+        let longestRepresentation = "";
+        let numberWithLongestRep = 0n;
+        
+        // Check all numbers from 2 to searchLimit (or k if smaller)
+        for (let i = 2n; i <= searchLimit; i++) {
+            const factors = getPrimeFactors(i);
+            const representation = getRepresentation(factors);
+            
+            if (representation.length > longestRepresentation.length) {
+                longestRepresentation = representation;
+                numberWithLongestRep = i;
+            }
+        }
+        
+        const result = {
+            n: n,
+            k: k.toString(),
+            m: numberWithLongestRep.toString(),
+            mBinary: toBinaryString(numberWithLongestRep),
+            representation: longestRepresentation
+        };
+        
+        results.push(result);
+        
+        // Output the result
+        console.log(`n: ${result.n}`);
+        console.log(`k: ${result.k}`);
+        console.log(`m: ${result.m}`);
+        console.log(`m (binary): ${result.mBinary}`);
+        console.log(`m's representation: ${result.representation}`);
+        console.log('---');
+    }
+    
+    return results;
+}
+</script>
