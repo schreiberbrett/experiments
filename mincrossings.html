@@ -24,7 +24,127 @@ asks for a given N, if it's possible to arrange N queens on an N*N chessboard
 such that no queen is attacking another. It turns out that finding such an
 arrangement is always possible, and it can be done with the following
 recursive backtracking algorithm, using a base case and a recursive case.
+*/
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+
+async function iterate1(n) {
+    async function f(v) {
+        if (v === n) return;
+
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                /*
+                If this square is available, then occupy it and recur on the
+                next vertex.
+                */
+                if (grid[i][j].innerText === '-') {
+                    grid[i][j].innerText = v.toString();
+
+                    await sleep(10);
+
+                    await f(v + 1);
+
+                    grid[i][j].innerText = '-';
+                }
+            }
+        }
+    }
+
+    let grid = Array.from({length: n}, () =>
+        Array.from({length: n}, () => {
+            let td = document.createElement('td');
+            td.innerText = '-';
+            return td;
+        })
+    );
+
+
+    let table = document.createElement('table');
+
+    for (let i = 0; i < n; i++) {
+        let tr = document.createElement('tr');
+        for (let j = 0; j < n; j++) {
+            tr.appendChild(grid[i][j]);
+        }
+
+                table.appendChild(tr);
+
+    }
+
+        document.body.appendChild(table);
+
+
+    await f(0);
+    document.body.removeChild(table);
+}
+
+/*
+Now we can take this iteration strategy and use it to find the graph layout
+with the minimum number of crossings.
+*/
+
+/*
+Of course, it takes a graph instead of just a number of vertices. Instead, "n"
+will be derived.
+*/
+async function iterate2(graph) {
+    async function  f(v) {
+        /*
+        The base case is precisely where the minimum layout may be
+        reconsidered.
+        */
+        if (v === n) {
+            if (currentCrossings < minCrossings) {
+                minCrossings = currentCrossings;
+
+                /* TODO: Copy the currentView into the minumumView. */
+            }
+
+            return;
+        }
+
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                if (grid[i][j] === -1) {
+                    /* Add the vertex here */
+
+                    await sleep(10);
+
+                    /*
+                    See if the newly-added vertex creating any overlaps
+                    among edges. If any exist, remove the vertex and continue.
+                    */
+
+                    /*
+                    TODO: Count up the number of new crossings created from
+                    inserting the vertex.
+                    */
+                    let newCrossings = 0;
+                    /* ... */
+
+                    currentCrossings += newCrossings;
+
+
+                    if (currentCrossings > minCrossings) {
+                        /* Remove the inserted vertex and continue */
+                    }
+
+                    /* Otherwise, we can recur. */
+
+                }
+            }
+        }
+    }
+
+
+    /* Setup */
+    /* TODO */
+}
+
+
+/*
 N-Queens algorithm base case:
 -----------------------------
 As a base case, suppose we are given an NxN chessboard and zero queens to
@@ -60,6 +180,9 @@ that minimizes the number of edge crossings. Thus although the task is similar
 in that there are N objects that are placed within N*N points, in this case a
 minimual solution is desired rather than simply a valid placement.
 
+
+
+
 Crossing number algorithm base case:
 ------------------------------------
 As a base case, suppose we are given an N*N plane with some number of points
@@ -85,7 +208,7 @@ go.innerText = 'Go!';
 // Add go to DOM
 document.body.appendChild(go);
 
-go.onclick = () => document.body.innerHTML += `<p>Yo yo!</p>`
+go.onclick = () => iterate1(4);
 
 
 </script>
