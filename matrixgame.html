@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random N-Regular 0-1 Matrix</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 20px 24px 28px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 16px;
+      margin-bottom: 16px;
+    }
+
+    .controls label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    .controls input[type="number"] {
+      width: 80px;
+      padding: 4px 6px;
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #999;
+      padding: 4px 10px;
+      font-size: 13px;
+      background: #f2f2f2;
+    }
+
+    button:hover {
+      background: #e2e2e2;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    #message {
+      font-size: 13px;
+      min-height: 1.2em;
+    }
+
+    #message.error {
+      color: #b00020;
+    }
+
+    #message.success {
+      color: #1b5e20;
+    }
+
+    #rotateControls {
+      margin-bottom: 10px;
+    }
+
+    #rotateControls button {
+      margin-right: 6px;
+    }
+
+    #matrixContainer {
+      overflow-x: auto;
+      margin-top: 4px;
+    }
+
+    table.matrix {
+      border-collapse: collapse;
+      margin-top: 6px;
+    }
+
+    table.matrix th,
+    table.matrix td {
+      border: 1px solid #ccc;
+      padding: 0;
+      text-align: center;
+    }
+
+    table.matrix th.selector-cell {
+      padding: 2px 4px;
+    }
+
+    .selector-button {
+      width: 100%;
+      height: 100%;
+      padding: 4px 6px;
+      border: none;
+      background: #f0f0f0;
+      font-size: 12px;
+    }
+
+    .selector-button:hover {
+      background: #e0e0e0;
+    }
+
+    .selector-button.selected {
+      background: #4a90e2;
+      color: white;
+      font-weight: 600;
+    }
+
+    .matrix-cell {
+      width: 26px;
+      height: 26px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+
+    .matrix-cell.zero {
+      background: #ffffff;
+    }
+
+    .matrix-cell.one {
+      background: #222222;
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>N-Regular Random 0-1 Matrix</h1>
+
+    <div class="controls">
+      <label>
+        N (ones per row/col):
+        <input id="inputN" type="number" min="0" value="2">
+      </label>
+      <label>
+        M (matrix size M×M):
+        <input id="inputM" type="number" min="1" value="4">
+      </label>
+      <button id="generateBtn">Go</button>
+      <span id="message"></span>
+    </div>
+
+    <div id="rotateControls" style="display:none;">
+      <button id="rotateLeftBtn">Rotate 90° CCW</button>
+      <button id="rotateRightBtn">Rotate 90° CW</button>
+    </div>
+
+    <div id="matrixContainer"></div>
+  </div>
+
+  <script>
+    let matrix = null; // current MxM matrix
+    let currentSelection = { type: null, index: null }; // {type: 'row'|'col', index: number}
+
+    const inputN = document.getElementById('inputN');
+    const inputM = document.getElementById('inputM');
+    const generateBtn = document.getElementById('generateBtn');
+    const messageEl = document.getElementById('message');
+    const matrixContainer = document.getElementById('matrixContainer');
+    const rotateControls = document.getElementById('rotateControls');
+    const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+    const rotateRightBtn = document.getElementById('rotateRightBtn');
+
+    generateBtn.addEventListener('click', () => {
+      const N = parseInt(inputN.value, 10);
+      const M = parseInt(inputM.value, 10);
+
+      clearMessage();
+      clearSelection();
+
+      if (Number.isNaN(N) || Number.isNaN(M)) {
+        showMessage('Please enter valid integers for N and M.', true);
+        return;
+      }
+      if (N < 0) {
+        showMessage('N must be ≥ 0.', true);
+        return;
+      }
+      if (M <= 0) {
+        showMessage('M must be ≥ 1.', true);
+        return;
+      }
+      if (N >= M) {
+        showMessage('Require N < M for this setup.', true);
+        return;
+      }
+
+      generateBtn.disabled = true;
+      showMessage('Generating matrix...', false);
+
+      setTimeout(() => {
+        try {
+          matrix = generateMatrix(N, M); // backtracking generator
+          showMessage('Matrix generated.', false, true);
+          rotateControls.style.display = 'block';
+          renderMatrix();
+        } catch (e) {
+          console.error(e);
+          showMessage('Failed to generate a matrix. Try smaller M or different N.', true);
+          matrixContainer.innerHTML = '';
+          rotateControls.style.display = 'none';
+        } finally {
+          generateBtn.disabled = false;
+        }
+      }, 0);
+    });
+
+    rotateLeftBtn.addEventListener('click', () => {
+      if (!matrix) return;
+      matrix = rotateMatrixLeft(matrix);
+      clearSelection();
+      renderMatrix();
+    });
+
+    rotateRightBtn.addEventListener('click', () => {
+      if (!matrix) return;
+      matrix = rotateMatrixRight(matrix);
+      clearSelection();
+      renderMatrix();
+    });
+
+    function showMessage(text, isError = false, isSuccess = false) {
+      messageEl.textContent = text;
+      messageEl.classList.remove('error', 'success');
+      if (isError) {
+        messageEl.classList.add('error');
+      } else if (isSuccess) {
+        messageEl.classList.add('success');
+      }
+    }
+
+    function clearMessage() {
+      messageEl.textContent = '';
+      messageEl.classList.remove('error', 'success');
+    }
+
+    function clearSelection() {
+      currentSelection.type = null;
+      currentSelection.index = null;
+    }
+
+    function handleHeaderClick(type, index) {
+      if (!matrix) return;
+
+      if (!currentSelection.type) {
+        // first selection
+        currentSelection.type = type;
+        currentSelection.index = index;
+        renderMatrix(); // to visually mark
+        return;
+      }
+
+      if (currentSelection.type === type) {
+        // same type: either unselect or swap
+        if (currentSelection.index === index) {
+          // clicking the same again -> unselect
+          clearSelection();
+        } else {
+          // swap rows or columns
+          if (type === 'row') {
+            swapRows(matrix, currentSelection.index, index);
+          } else {
+            swapCols(matrix, currentSelection.index, index);
+          }
+          clearSelection();
+        }
+        renderMatrix();
+      } else {
+        // different type: unpress the first and reset selection
+        clearSelection();
+        renderMatrix();
+      }
+    }
+
+    function renderMatrix() {
+      matrixContainer.innerHTML = '';
+      if (!matrix) return;
+      const M = matrix.length;
+
+      const table = document.createElement('table');
+      table.className = 'matrix';
+
+      // Header row: blank corner + column selector buttons
+      const headerRow = document.createElement('tr');
+
+      const cornerTh = document.createElement('th');
+      cornerTh.className = 'selector-cell';
+      headerRow.appendChild(cornerTh);
+
+      for (let c = 0; c < M; c++) {
+        const th = document.createElement('th');
+        th.className = 'selector-cell';
+        const btn = document.createElement('button');
+        btn.textContent = 'C' + c;
+        btn.className = 'selector-button';
+        if (currentSelection.type === 'col' && currentSelection.index === c) {
+          btn.classList.add('selected');
+        }
+        btn.addEventListener('click', () => handleHeaderClick('col', c));
+        th.appendChild(btn);
+        headerRow.appendChild(th);
+      }
+
+      table.appendChild(headerRow);
+
+      // Rows: row selector button + cells
+      for (let r = 0; r < M; r++) {
+        const tr = document.createElement('tr');
+
+        const rowHeaderTh = document.createElement('th');
+        rowHeaderTh.className = 'selector-cell';
+        const rowBtn = document.createElement('button');
+        rowBtn.textContent = 'R' + r;
+        rowBtn.className = 'selector-button';
+        if (currentSelection.type === 'row' && currentSelection.index === r) {
+          rowBtn.classList.add('selected');
+        }
+        rowBtn.addEventListener('click', () => handleHeaderClick('row', r));
+        rowHeaderTh.appendChild(rowBtn);
+        tr.appendChild(rowHeaderTh);
+
+        for (let c = 0; c < M; c++) {
+          const td = document.createElement('td');
+          const val = matrix[r][c];
+          td.textContent = val;
+          td.className = 'matrix-cell ' + (val === 1 ? 'one' : 'zero');
+          tr.appendChild(td);
+        }
+
+        table.appendChild(tr);
+      }
+
+      matrixContainer.appendChild(table);
+    }
+
+    // Swap helper functions
+    function swapRows(mat, i, j) {
+      const tmp = mat[i];
+      mat[i] = mat[j];
+      mat[j] = tmp;
+    }
+
+    function swapCols(mat, i, j) {
+      for (let r = 0; r < mat.length; r++) {
+        const tmp = mat[r][i];
+        mat[r][i] = mat[r][j];
+        mat[r][j] = tmp;
+      }
+    }
+
+    // Rotation helpers
+    function rotateMatrixRight(mat) {
+      const M = mat.length;
+      const res = Array.from({ length: M }, () => Array(M).fill(0));
+      for (let r = 0; r < M; r++) {
+        for (let c = 0; c < M; c++) {
+          res[c][M - 1 - r] = mat[r][c];
+        }
+      }
+      return res;
+    }
+
+    function rotateMatrixLeft(mat) {
+      const M = mat.length;
+      const res = Array.from({ length: M }, () => Array(M).fill(0));
+      for (let r = 0; r < M; r++) {
+        for (let c = 0; c < M; c++) {
+          res[M - 1 - c][r] = mat[r][c];
+        }
+      }
+      return res;
+    }
+
+    // Backtracking generator: MxM 0/1 matrix with exactly N ones in each row and column
+    function generateMatrix(N, M) {
+      const matrix = Array.from({ length: M }, () => Array(M).fill(0));
+      const rowCounts = Array(M).fill(0);
+      const colCounts = Array(M).fill(0);
+
+      // fixed order of cells; randomness from trying 0/1 in random order
+      const order = [];
+      for (let r = 0; r < M; r++) {
+        for (let c = 0; c < M; c++) {
+          order.push([r, c]);
+        }
+      }
+
+      function feasible(pos) {
+        const remainingRowCells = Array(M).fill(0);
+        const remainingColCells = Array(M).fill(0);
+
+        for (let k = pos + 1; k < order.length; k++) {
+          const [rr, cc] = order[k];
+          remainingRowCells[rr]++;
+          remainingColCells[cc]++;
+        }
+
+        for (let i = 0; i < M; i++) {
+          const minRow = rowCounts[i];
+          const maxRow = rowCounts[i] + remainingRowCells[i];
+          if (minRow > N || maxRow < N) return false;
+        }
+
+        for (let j = 0; j < M; j++) {
+          const minCol = colCounts[j];
+          const maxCol = colCounts[j] + remainingColCells[j];
+          if (minCol > N || maxCol < N) return false;
+        }
+
+        return true;
+      }
+
+      function backtrack(pos) {
+        if (pos === order.length) {
+          // all cells assigned: ensure each row/col has exactly N ones
+          return rowCounts.every(v => v === N) && colCounts.every(v => v === N);
+        }
+
+        const [r, c] = order[pos];
+        const options = [0, 1];
+        // randomize trying order of 0 and 1
+        if (Math.random() < 0.5) options.reverse();
+
+        for (const val of options) {
+          // local constraints
+          if (val === 1) {
+            if (rowCounts[r] >= N) continue;
+            if (colCounts[c] >= N) continue;
+          }
+
+          matrix[r][c] = val;
+          if (val === 1) {
+            rowCounts[r]++;
+            colCounts[c]++;
+          }
+
+          // global feasibility check
+          if (feasible(pos)) {
+            if (backtrack(pos + 1)) return true;
+          }
+
+          // undo
+          if (val === 1) {
+            rowCounts[r]--;
+            colCounts[c]--;
+          }
+          matrix[r][c] = 0;
+        }
+
+        return false;
+      }
+
+      const ok = backtrack(0);
+      if (!ok) {
+        throw new Error('Backtracking failed to find a valid matrix.');
+      }
+      return matrix;
+    }
+  </script>
+</body>
+</html>
+
+
