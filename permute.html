@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>4x4 Matrix Transform Search</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      margin-bottom: 0.2em;
+    }
+    .section-title {
+      margin-top: 1.5em;
+      font-weight: bold;
+    }
+    .matrix-grid {
+      display: inline-grid;
+      grid-template-columns: repeat(4, 2em);
+      gap: 4px;
+      margin: 4px 0;
+    }
+    .matrix-cell {
+      width: 2em;
+      height: 2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ccc;
+      font-weight: bold;
+    }
+    .target-grid select {
+      width: 3em;
+    }
+    #controls {
+      margin-top: 1em;
+    }
+    #nextButton {
+      padding: 0.4em 1em;
+      font-size: 1em;
+    }
+    #status {
+      margin-top: 0.6em;
+      font-style: italic;
+    }
+    #matricesContainer {
+      margin-top: 1.5em;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .matrix-card {
+      border: 1px solid #ddd;
+      padding: 8px;
+      border-radius: 4px;
+      min-width: 140px;
+    }
+    .matrix-card.solution {
+      border-color: green;
+      box-shadow: 0 0 5px rgba(0, 128, 0, 0.7);
+    }
+    .matrix-path {
+      font-size: 0.8em;
+      margin-top: 6px;
+      word-break: break-word;
+    }
+    #historyOutput {
+      margin-top: 1em;
+      white-space: pre-wrap;
+      font-family: monospace;
+      background: #f7f7f7;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>4x4 Matrix Transform Search</h1>
+
+  <div class="section-title">Original matrix</div>
+  <div id="originalMatrix" class="matrix-grid"></div>
+
+  <div class="section-title">Target permutation (select letters a–p)</div>
+  <div id="targetGrid" class="matrix-grid target-grid"></div>
+
+  <div id="controls">
+    <button id="nextButton">Next</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="section-title">Current matrices (frontier)</div>
+  <div id="matricesContainer"></div>
+
+  <div id="historyOutput"></div>
+
+  <script>
+    const originalMatrix = [
+      ['a', 'b', 'c', 'd'],
+      ['e', 'f', 'g', 'h'],
+      ['i', 'j', 'k', 'l'],
+      ['m', 'n', 'o', 'p']
+    ];
+
+    const allLetters = originalMatrix.flat();
+
+    let seen = null;        // Set of string representations of matrices
+    let frontier = null;    // Array of { matrix, path }
+    let targetString = null;
+    let step = 0;
+    let solved = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderOriginalMatrix();
+      buildTargetSelects();
+      document.getElementById('nextButton').addEventListener('click', onNextClick);
+      setStatus('Choose a valid target permutation and press "Next" to start.');
+    });
+
+    function renderOriginalMatrix() {
+      const container = document.getElementById('originalMatrix');
+      container.innerHTML = '';
+      originalMatrix.forEach(row => {
+        row.forEach(val => {
+          const cell = document.createElement('div');
+          cell.className = 'matrix-cell';
+          cell.textContent = val;
+          container.appendChild(cell);
+        });
+      });
+    }
+
+    function buildTargetSelects() {
+      const container = document.getElementById('targetGrid');
+      container.innerHTML = '';
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const sel = document.createElement('select');
+          allLetters.forEach(letter => {
+            const opt = document.createElement('option');
+            opt.value = letter;
+            opt.textContent = letter;
+            sel.appendChild(opt);
+          });
+          // Default to original matrix arrangement
+          sel.value = originalMatrix[r][c];
+          container.appendChild(sel);
+        }
+      }
+    }
+
+    function getTargetFromSelects() {
+      const selects = Array.from(
+        document.querySelectorAll('#targetGrid select')
+      );
+      return selects.map(sel => sel.value);
+    }
+
+    function validateTargetPermutation(values) {
+      if (values.length !== 16) return false;
+      const counts = {};
+      for (const v of values) {
+        if (!allLetters.includes(v)) return false;
+        counts[v] = (counts[v] || 0) + 1;
+      }
+      return allLetters.every(letter => counts[letter] === 1);
+    }
+
+    function matrixToString(matrix) {
+      // Flatten row-major into a 16-character string
+      return matrix.flat().join('');
+    }
+
+    function stringToMatrix(str) {
+      const matrix = [];
+      for (let i = 0; i < 4; i++) {
+        matrix.push(str.slice(i * 4, i * 4 + 4).split(''));
+      }
+      return matrix;
+    }
+
+    function cloneMatrix(mat) {
+      return mat.map(row => row.slice());
+    }
+
+    function swapRows(matrix, r1, r2) {
+      const m = cloneMatrix(matrix);
+      const temp = m[r1];
+      m[r1] = m[r2];
+      m[r2] = temp;
+      return m;
+    }
+
+    function swapCols(matrix, c1, c2) {
+      const m = cloneMatrix(matrix);
+      for (let r = 0; r < 4; r++) {
+        const tmp = m[r][c1];
+        m[r][c1] = m[r][c2];
+        m[r][c2] = tmp;
+      }
+      return m;
+    }
+
+    function rotate90(matrix) {
+      const m = cloneMatrix(matrix);
+      const res = Array.from({ length: 4 }, () => new Array(4));
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          res[c][3 - r] = m[r][c];
+        }
+      }
+      return res;
+    }
+
+    function rotateMatrix(matrix, times) {
+      let res = cloneMatrix(matrix);
+      times = ((times % 4) + 4) % 4;
+      for (let i = 0; i < times; i++) {
+        res = rotate90(res);
+      }
+      return res;
+    }
+
+    function setStatus(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+
+    function renderMatrices(matrices, isSolution = false) {
+      const container = document.getElementById('matricesContainer');
+      container.innerHTML = '';
+
+      if (!matrices || matrices.length === 0) {
+        container.textContent = '(none)';
+        return;
+      }
+
+      matrices.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'matrix-card';
+        if (isSolution) {
+          card.classList.add('solution');
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'matrix-grid';
+        item.matrix.forEach(row => {
+          row.forEach(val => {
+            const cell = document.createElement('div');
+            cell.className = 'matrix-cell';
+            cell.textContent = val;
+            grid.appendChild(cell);
+          });
+        });
+
+        const label = document.createElement('div');
+        label.textContent = isSolution
+          ? 'Solution matrix'
+          : `Matrix #${idx + 1}`;
+
+        const path = document.createElement('div');
+        path.className = 'matrix-path';
+        path.textContent = 'Path: ' + item.path;
+
+        card.appendChild(label);
+        card.appendChild(grid);
+        card.appendChild(path);
+        container.appendChild(card);
+      });
+    }
+
+    function showHistory(path) {
+      const historyDiv = document.getElementById('historyOutput');
+      historyDiv.textContent =
+        'Transformation history (from original to target):\n' + path;
+    }
+
+    function disableTargetSelects() {
+      const selects = document.querySelectorAll('#targetGrid select');
+      selects.forEach(s => (s.disabled = true));
+    }
+
+    function onNextClick() {
+      if (solved) {
+        setStatus('Search already solved. Reload the page to start over.');
+        return;
+      }
+
+      if (targetString === null) {
+        const values = getTargetFromSelects();
+        if (!validateTargetPermutation(values)) {
+          alert(
+            'Target must be a permutation of letters a–p, each used exactly once.'
+          );
+          return;
+        }
+        targetString = values.join('');
+        disableTargetSelects();
+        setStatus(
+          'Target fixed. Starting search... (press "Next" again if needed)'
+        );
+      }
+
+      if (seen === null) {
+        // First press: initialize search
+        seen = new Set();
+        const originalString = matrixToString(originalMatrix);
+        seen.add(originalString);
+        frontier = [
+          {
+            matrix: originalMatrix,
+            path: 'start'
+          }
+        ];
+        step = 0;
+      }
+
+      advanceSearch();
+    }
+
+    function advanceSearch() {
+      if (!frontier || frontier.length === 0) {
+        setStatus(
+          'No more matrices to explore. Target is not reachable via these transformations.'
+        );
+        return;
+      }
+
+      const nextFrontier = [];
+      let solution = null;
+      let stopped = false;
+
+      for (const node of frontier) {
+        if (stopped) break;
+
+        const base = node.matrix;
+        const basePath = node.path;
+
+        // Row swaps: C(4,2) = 6
+        for (let r1 = 0; r1 < 4 && !stopped; r1++) {
+          for (let r2 = r1 + 1; r2 < 4 && !stopped; r2++) {
+            const newM = swapRows(base, r1, r2);
+            const s = matrixToString(newM);
+            if (!seen.has(s)) {
+              seen.add(s);
+              const newPath =
+                basePath + ` -> swap rows ${r1 + 1} and ${r2 + 1}`;
+              if (s === targetString) {
+                solution = { matrix: newM, path: newPath };
+                stopped = true;
+                break;
+              }
+              nextFrontier.push({ matrix: newM, path: newPath });
+            }
+          }
+        }
+
+        // Column swaps: C(4,2) = 6
+        for (let c1 = 0; c1 < 4 && !stopped; c1++) {
+          for (let c2 = c1 + 1; c2 < 4 && !stopped; c2++) {
+            const newM = swapCols(base, c1, c2);
+            const s = matrixToString(newM);
+            if (!seen.has(s)) {
+              seen.add(s);
+              const newPath =
+                basePath + ` -> swap columns ${c1 + 1} and ${c2 + 1}`;
+              if (s === targetString) {
+                solution = { matrix: newM, path: newPath };
+                stopped = true;
+                break;
+              }
+              nextFrontier.push({ matrix: newM, path: newPath });
+            }
+          }
+        }
+
+        // Rotations: 0, 90, 180, 270 degrees
+        // (0 is the identity; it will usually be "seen" already)
+        for (let t = 0; t < 4 && !stopped; t++) {
+          const angle = t * 90;
+          const newM = rotateMatrix(base, t);
+          const s = matrixToString(newM);
+          if (!seen.has(s)) {
+            seen.add(s);
+            const newPath = basePath + ` -> rotate ${angle}°`;
+            if (s === targetString) {
+              solution = { matrix: newM, path: newPath };
+              stopped = true;
+              break;
+            }
+            nextFrontier.push({ matrix: newM, path: newPath });
+          }
+        }
+      }
+
+      if (solution) {
+        solved = true;
+        frontier = [];
+        renderMatrices([solution], true);
+        showHistory(solution.path);
+        setStatus(
+          `Solution found after step ${step + 1}. Search halted.`
+        );
+        return;
+      }
+
+      frontier = nextFrontier;
+      step++;
+
+      renderMatrices(frontier, false);
+      if (frontier.length === 0) {
+        setStatus(
+          `Step ${step}: no new matrices generated. Search exhausted without finding the target.`
+        );
+      } else {
+        setStatus(
+          `Step ${step}: showing ${frontier.length} matrices. Seen so far: ${seen.size}.`
+        );
+      }
+    }
+  </script>
+</body>
+</html>
+
