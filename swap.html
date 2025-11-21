@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diagonal Grid Solver</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background: #f5f5f5;
+      color: #222;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    input[type="number"] {
+      width: 80px;
+      padding: 0.25rem 0.5rem;
+    }
+
+    button {
+      padding: 0.4rem 0.9rem;
+      border-radius: 0.4rem;
+      border: none;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    button:hover:not(:disabled) {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      margin-bottom: 1.2rem;
+    }
+
+    #inputGrid {
+      display: grid;
+      gap: 4px;
+      margin-top: 0.75rem;
+    }
+
+    #inputGrid input {
+      width: 3rem;
+      padding: 0.25rem;
+      text-align: center;
+    }
+
+    #status {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #444;
+      min-height: 1.4em;
+    }
+
+    #solutionSection {
+      margin-top: 1rem;
+    }
+
+    .grid-label {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .anim-wrapper {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      background: #f9fafb;
+    }
+
+    #animGridWrapper {
+      display: inline-block;
+      /* rotation pivot */
+      transform-origin: center center;
+    }
+
+    #animGrid {
+      display: inline-block;
+    }
+
+    .anim-row {
+      display: flex;
+    }
+
+    .anim-cell {
+      width: 3rem;
+      height: 3rem;
+      border: 1px solid #d1d5db;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 1px;
+      border-radius: 0.35rem;
+      background: white;
+      box-sizing: border-box;
+      font-size: 0.9rem;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 0.25rem;
+    }
+
+    .buttons-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      align-items: center;
+    }
+
+    .note {
+      font-size: 0.75rem;
+      color: #777;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Diagonal Grid Solver</h1>
+
+  <div class="panel">
+    <div class="controls">
+      <label for="sizeInput">Size M:</label>
+      <input id="sizeInput" type="number" min="1" value="3" />
+      <button id="nextBtn">Next</button>
+      <button id="searchBtn" disabled>Search</button>
+    </div>
+    <div id="gridContainer">
+      <!-- M×M input grid will appear here -->
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="panel" id="solutionSection">
+    <!-- Solution / animation will be shown here -->
+  </div>
+
+  <script>
+    /**
+     * @typedef {{kind: 'Col', i: number, j: number} |
+     *           {kind: 'Row', i: number, j: number} |
+     *           {kind: 'Rotate'}} Move
+     */
+
+    const MAX_SIZE = 5;        // safety bound for BFS complexity
+    const ANIM_DURATION = 500; // ms
+
+    let currentSize = 0;
+    /** @type {string[][] | null} */
+    let sourceGrid = null;
+    /** @type {Move[] | null} */
+    let solutionPath = null;
+    /** @type {string[][] | null} */
+    let currentAnimGrid = null;
+    let isAnimating = false;
+
+    const sizeInput = document.getElementById('sizeInput');
+    const nextBtn = document.getElementById('nextBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const gridContainer = document.getElementById('gridContainer');
+    const statusEl = document.getElementById('status');
+    const solutionSection = document.getElementById('solutionSection');
+
+    nextBtn.addEventListener('click', () => {
+      const m = parseInt(sizeInput.value, 10);
+      if (isNaN(m) || m <= 0) {
+        statusEl.textContent = 'Please enter a positive integer for M.';
+        return;
+      }
+      if (m > MAX_SIZE) {
+        statusEl.textContent =
+          `M is too large for exhaustive search. Please use M ≤ ${MAX_SIZE}.`;
+        return;
+      }
+      createInputGrid(m);
+      searchBtn.disabled = false;
+      solutionSection.innerHTML = '';
+      statusEl.textContent = '';
+    });
+
+    searchBtn.addEventListener('click', () => {
+      if (!currentSize) {
+        statusEl.textContent = 'Create a grid first (press Next).';
+        return;
+      }
+      const grid = readSourceGrid();
+      if (!grid) {
+        // error already reported
+        return;
+      }
+      sourceGrid = grid;
+      statusEl.textContent = 'Searching for a solution (BFS)...';
+      setTimeout(() => {
+        const result = bfs(grid);
+        if (!result.solutionGrid) {
+          if (result.truncated) {
+            statusEl.textContent =
+              `No solution found within search limit (explored ${result.explored} configurations).`;
+          } else {
+            statusEl.textContent =
+              `No solution exists (explored ${result.explored} configurations).`;
+          }
+          solutionSection.innerHTML = '';
+        } else {
+          solutionPath = result.path;
+          statusEl.textContent =
+            `Solution found with ${solutionPath.length} move(s), explored ${result.explored} configurations.`;
+          showSolutionUI();
+        }
+      }, 10); // small delay so UI updates "Searching..." first
+    });
+
+    /**
+     * Create M×M string input grid.
+     * @param {number} m
+     */
+    function createInputGrid(m) {
+      currentSize = m;
+      gridContainer.innerHTML = '';
+      const grid = document.createElement('div');
+      grid.id = 'inputGrid';
+      grid.style.gridTemplateColumns = `repeat(${m}, 3rem)`;
+
+      for (let r = 0; r < m; r++) {
+        for (let c = 0; c < m; c++) {
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.className = 'cell-input';
+          inp.setAttribute('data-row', String(r));
+          inp.setAttribute('data-col', String(c));
+          grid.appendChild(inp);
+        }
+      }
+      gridContainer.appendChild(grid);
+    }
+
+    /**
+     * Read grid from the M×M inputs.
+     * @returns {string[][] | null}
+     */
+    function readSourceGrid() {
+      const inputs = Array.from(
+        gridContainer.querySelectorAll('.cell-input')
+      );
+      if (!inputs.length) {
+        statusEl.textContent = 'No grid present. Press Next first.';
+        return null;
+      }
+      /** @type {string[][]} */
+      const grid = [];
+      for (let r = 0; r < currentSize; r++) {
+        grid[r] = [];
+        for (let c = 0; c < currentSize; c++) {
+          const inp = inputs.find(
+            el =>
+              parseInt(el.getAttribute('data-row'), 10) === r &&
+              parseInt(el.getAttribute('data-col'), 10) === c
+          );
+          if (!inp) {
+            statusEl.textContent = 'Internal error reading grid.';
+            return null;
+          }
+          const val = inp.value;
+          if (val === '') {
+            statusEl.textContent = 'Please fill all cells before searching.';
+            return null;
+          }
+          grid[r][c] = val;
+        }
+      }
+      return grid;
+    }
+
+    /**
+     * Encode grid as a string key.
+     * @param {string[][]} grid
+     */
+    function encodeGrid(grid) {
+      const rowSep = '\u0001';
+      const gridSep = '\u0002';
+      return grid.map(row => row.join(rowSep)).join(gridSep);
+    }
+
+    /**
+     * Deep copy grid.
+     * @param {string[][]} grid
+     * @returns {string[][]}
+     */
+    function cloneGrid(grid) {
+      return grid.map(row => row.slice());
+    }
+
+    /**
+     * Rotate grid 90° clockwise.
+     * @param {string[][]} grid
+     * @returns {string[][]}
+     */
+    function rotateCW(grid) {
+      const m = grid.length;
+      /** @type {string[][]} */
+      const res = Array.from({ length: m }, () =>
+        Array.from({ length: m }, () => '')
+      );
+      for (let r = 0; r < m; r++) {
+        for (let c = 0; c < m; c++) {
+          res[c][m - 1 - r] = grid[r][c];
+        }
+      }
+      return res;
+    }
+
+    /**
+     * Rotate grid 90° counter-clockwise.
+     * @param {string[][]} grid
+     * @returns {string[][]}
+     */
+    function rotateCCW(grid) {
+      const m = grid.length;
+      /** @type {string[][]} */
+      const res = Array.from({ length: m }, () =>
+        Array.from({ length: m }, () => '')
+      );
+      for (let r = 0; r < m; r++) {
+        for (let c = 0; c < m; c++) {
+          res[m - 1 - c][r] = grid[r][c];
+        }
+      }
+      return res;
+    }
+
+    /**
+     * Check solution condition:
+     * All NW–SE diagonals have constant values.
+     * @param {string[][]} grid
+     * @returns {boolean}
+     */
+    function isSolutionGrid(grid) {
+      const m = grid.length;
+      if (!m) return false;
+
+      // NW–SE diagonals (↘)
+      // start from top row
+      for (let startCol = 0; startCol < m; startCol++) {
+        let r = 0, c = startCol;
+        const val = grid[r][c];
+        while (r + 1 < m && c + 1 < m) {
+          if (grid[r + 1][c + 1] !== val) return false;
+          r++; c++;
+        }
+      }
+      // start from left column (excluding [0,0], already done)
+      for (let startRow = 1; startRow < m; startRow++) {
+        let r = startRow, c = 0;
+        const val = grid[r][c];
+        while (r + 1 < m && c + 1 < m) {
+          if (grid[r + 1][c + 1] !== val) return false;
+          r++; c++;
+        }
+      }
+
+      /*
+      // NE–SW diagonals (↙)
+      // start from top row
+      for (let startCol = 0; startCol < m; startCol++) {
+        let r = 0, c = startCol;
+        const val = grid[r][c];
+        while (r + 1 < m && c - 1 >= 0) {
+          if (grid[r + 1][c - 1] !== val) return false;
+          r++; c--;
+        }
+      }
+      // start from right column (excluding [0,m-1])
+      for (let startRow = 1; startRow < m; startRow++) {
+        let r = startRow, c = m - 1;
+        const val = grid[r][c];
+        while (r + 1 < m && c - 1 >= 0) {
+          if (grid[r + 1][c - 1] !== val) return false;
+          r++; c--;
+        }
+      }
+      */
+
+      return true;
+    }
+
+    /**
+     * Breadth-first search over grids under moves: row swap, col swap, 90° CW rotation.
+     * Returns the first solution path found (shortest).
+     * @param {string[][]} startGrid
+     */
+    function bfs(startGrid) {
+      const startKey = encodeGrid(startGrid);
+      /** @type {Map<string, Move[]>} */
+      const paths = new Map();
+      paths.set(startKey, []);
+      /** @type {string[][][]} */
+      const queue = [startGrid];
+      const maxStates = 50000;
+      let processed = 0;
+
+      while (queue.length > 0 && processed < maxStates) {
+        const grid = queue.shift();
+        const key = encodeGrid(grid);
+        const path = paths.get(key) || [];
+        if (isSolutionGrid(grid)) {
+          return {
+            solutionGrid: grid,
+            path,
+            explored: paths.size,
+            truncated: false
+          };
+        }
+        processed++;
+        const m = grid.length;
+
+        // Row swaps
+        for (let i = 0; i < m; i++) {
+          for (let j = i + 1; j < m; j++) {
+            const newGrid = cloneGrid(grid);
+            const tmp = newGrid[i];
+            newGrid[i] = newGrid[j];
+            newGrid[j] = tmp;
+            const newKey = encodeGrid(newGrid);
+            if (!paths.has(newKey)) {
+              /** @type {Move} */
+              const move = { kind: 'Row', i, j };
+              const newPath = path.concat([move]);
+              paths.set(newKey, newPath);
+              queue.push(newGrid);
+            }
+          }
+        }
+
+        // Column swaps
+        for (let i = 0; i < m; i++) {
+          for (let j = i + 1; j < m; j++) {
+            const newGrid = cloneGrid(grid);
+            for (let r = 0; r < m; r++) {
+              const tmp = newGrid[r][i];
+              newGrid[r][i] = newGrid[r][j];
+              newGrid[r][j] = tmp;
+            }
+            const newKey = encodeGrid(newGrid);
+            if (!paths.has(newKey)) {
+              /** @type {Move} */
+              const move = { kind: 'Col', i, j };
+              const newPath = path.concat([move]);
+              paths.set(newKey, newPath);
+              queue.push(newGrid);
+            }
+          }
+        }
+
+        // Rotation (90° clockwise)
+        {
+          const newGrid = rotateCW(grid);
+          const newKey = encodeGrid(newGrid);
+          if (!paths.has(newKey)) {
+            /** @type {Move} */
+            const move = { kind: 'Rotate' };
+            const newPath = path.concat([move]);
+            paths.set(newKey, newPath);
+            queue.push(newGrid);
+          }
+        }
+      }
+
+      return {
+        solutionGrid: null,
+        path: null,
+        explored: paths.size,
+        truncated: processed >= maxStates
+      };
+    }
+
+    /**
+     * Show read-only grid and Go/Reset buttons; set up animation.
+     */
+    function showSolutionUI() {
+      solutionSection.innerHTML = '';
+
+      if (!sourceGrid || !solutionPath) {
+        return;
+      }
+
+      const title = document.createElement('div');
+      title.className = 'grid-label';
+      title.textContent = 'Source grid (animated):';
+      solutionSection.appendChild(title);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = `Path length: ${solutionPath.length} move(s).`;
+      solutionSection.appendChild(meta);
+
+      // Animation area
+      const animPanel = document.createElement('div');
+      animPanel.className = 'anim-wrapper';
+
+      const animGridWrapper = document.createElement('div');
+      animGridWrapper.id = 'animGridWrapper';
+
+      const animGrid = document.createElement('div');
+      animGrid.id = 'animGrid';
+
+      animGridWrapper.appendChild(animGrid);
+      animPanel.appendChild(animGridWrapper);
+      solutionSection.appendChild(animPanel);
+
+      // Buttons
+      const buttonsRow = document.createElement('div');
+      buttonsRow.className = 'buttons-row';
+
+      const goBtn = document.createElement('button');
+      goBtn.id = 'goBtn';
+      goBtn.textContent = 'Go';
+
+      const resetBtn = document.createElement('button');
+      resetBtn.id = 'resetBtn';
+      resetBtn.textContent = 'Reset';
+      resetBtn.disabled = true; // enabled after forward animation completes
+
+      buttonsRow.appendChild(goBtn);
+      buttonsRow.appendChild(resetBtn);
+      solutionSection.appendChild(buttonsRow);
+
+      const note = document.createElement('div');
+      note.className = 'note';
+      note.textContent =
+        '“Go” applies the moves in order; “Reset” plays them back in reverse.';
+      solutionSection.appendChild(note);
+
+      // Initialize currentAnimGrid to source
+      currentAnimGrid = cloneGrid(sourceGrid);
+      renderAnimGrid();
+
+      goBtn.addEventListener('click', () => {
+        if (!solutionPath || !currentAnimGrid || isAnimating) return;
+        isAnimating = true;
+        goBtn.disabled = true;
+        resetBtn.disabled = true;
+
+        runMovesSequentially(solutionPath, 'forward', () => {
+          isAnimating = false;
+          // At this point, grid satisfies solution condition
+          resetBtn.disabled = false;
+        });
+      });
+
+      resetBtn.addEventListener('click', () => {
+        if (!solutionPath || !currentAnimGrid || isAnimating) return;
+        isAnimating = true;
+        goBtn.disabled = true;
+        resetBtn.disabled = true;
+
+        const reversed = solutionPath.slice().reverse();
+        runMovesSequentially(reversed, 'backward', () => {
+          isAnimating = false;
+          // Back at source
+          goBtn.disabled = false;
+        });
+      });
+    }
+
+    /**
+     * Render currentAnimGrid into #animGrid.
+     */
+    function renderAnimGrid() {
+      const animGrid = document.getElementById('animGrid');
+      animGrid.innerHTML = '';
+      if (!currentAnimGrid) return;
+      const m = currentAnimGrid.length;
+
+      for (let r = 0; r < m; r++) {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'anim-row';
+        for (let c = 0; c < m; c++) {
+          const cellEl = document.createElement('div');
+          cellEl.className = 'anim-cell';
+          cellEl.textContent = currentAnimGrid[r][c];
+          cellEl.setAttribute('data-row', String(r));
+          cellEl.setAttribute('data-col', String(c));
+          rowEl.appendChild(cellEl);
+        }
+        animGrid.appendChild(rowEl);
+      }
+    }
+
+    /**
+     * Run a list of moves one after another, with animation.
+     * For direction === 'forward' rotations are clockwise;
+     * for direction === 'backward', rotations are counter-clockwise.
+     *
+     * @param {Move[]} moves
+     * @param {'forward' | 'backward'} direction
+     * @param {() => void} done
+     */
+    function runMovesSequentially(moves, direction, done) {
+      let idx = 0;
+
+      function step() {
+        if (idx >= moves.length) {
+          done();
+          return;
+        }
+        const move = moves[idx];
+        animateMove(move, direction, () => {
+          idx++;
+          // small pause between moves
+          setTimeout(step, 80);
+        });
+      }
+
+      step();
+    }
+
+    /**
+     * Animate a single move and update currentAnimGrid accordingly.
+     *
+     * @param {Move} move
+     * @param {'forward' | 'backward'} direction
+     * @param {() => void} callback
+     */
+    function animateMove(move, direction, callback) {
+      if (!currentAnimGrid) {
+        callback();
+        return;
+      }
+
+      if (move.kind === 'Row') {
+        animateRowSwap(move.i, move.j, callback);
+      } else if (move.kind === 'Col') {
+        animateColSwap(move.i, move.j, callback);
+      } else if (move.kind === 'Rotate') {
+        animateRotate(direction, callback);
+      }
+    }
+
+    /**
+     * Animate swapping two rows (by index).
+     * @param {number} i
+     * @param {number} j
+     * @param {() => void} callback
+     */
+    function animateRowSwap(i, j, callback) {
+      const animGrid = document.getElementById('animGrid');
+      const rowEls = animGrid.querySelectorAll('.anim-row');
+      const m = currentAnimGrid.length;
+      if (i < 0 || j < 0 || i >= m || j >= m) {
+        callback();
+        return;
+      }
+
+      const rowI = rowEls[i];
+      const rowJ = rowEls[j];
+      if (!rowI || !rowJ) {
+        callback();
+        return;
+      }
+
+      const cellExample = rowI.querySelector('.anim-cell');
+      if (!cellExample) {
+        callback();
+        return;
+      }
+      const cellHeight = cellExample.offsetHeight + 2; // small margin compensation
+      const delta = (j - i) * cellHeight;
+
+      // Apply transforms to cells in rows i and j
+      const cellsI = rowI.querySelectorAll('.anim-cell');
+      const cellsJ = rowJ.querySelectorAll('.anim-cell');
+      cellsI.forEach(cell => {
+        cell.style.transition = `transform ${ANIM_DURATION}ms linear`;
+        cell.style.transform = `translateY(${delta}px)`;
+      });
+      cellsJ.forEach(cell => {
+        cell.style.transition = `transform ${ANIM_DURATION}ms linear`;
+        cell.style.transform = `translateY(${-delta}px)`;
+      });
+
+      setTimeout(() => {
+        // reset transforms
+        cellsI.forEach(cell => {
+          cell.style.transition = '';
+          cell.style.transform = '';
+        });
+        cellsJ.forEach(cell => {
+          cell.style.transition = '';
+          cell.style.transform = '';
+        });
+
+        // update data grid
+        const tmp = currentAnimGrid[i];
+        currentAnimGrid[i] = currentAnimGrid[j];
+        currentAnimGrid[j] = tmp;
+
+        // re-render grid in new order
+        renderAnimGrid();
+        callback();
+      }, ANIM_DURATION);
+    }
+
+    /**
+     * Animate swapping two columns (by index).
+     * @param {number} i
+     * @param {number} j
+     * @param {() => void} callback
+     */
+    function animateColSwap(i, j, callback) {
+      const animGrid = document.getElementById('animGrid');
+      const rowEls = animGrid.querySelectorAll('.anim-row');
+      const m = currentAnimGrid.length;
+      if (i < 0 || j < 0 || i >= m || j >= m) {
+        callback();
+        return;
+      }
+
+      // take cell from first row for width
+      const firstRow = rowEls[0];
+      if (!firstRow) {
+        callback();
+        return;
+      }
+      const cellExample = firstRow.querySelector('.anim-cell');
+      if (!cellExample) {
+        callback();
+        return;
+      }
+      const cellWidth = cellExample.offsetWidth + 2;
+      const delta = (j - i) * cellWidth;
+
+      // Collect cells in each affected column
+      const cellsInI = [];
+      const cellsInJ = [];
+      rowEls.forEach(rowEl => {
+        const cells = rowEl.querySelectorAll('.anim-cell');
+        if (cells[i] && cells[j]) {
+          cellsInI.push(cells[i]);
+          cellsInJ.push(cells[j]);
+        }
+      });
+
+      cellsInI.forEach(cell => {
+        cell.style.transition = `transform ${ANIM_DURATION}ms linear`;
+        cell.style.transform = `translateX(${delta}px)`;
+      });
+      cellsInJ.forEach(cell => {
+        cell.style.transition = `transform ${ANIM_DURATION}ms linear`;
+        cell.style.transform = `translateX(${-delta}px)`;
+      });
+
+      setTimeout(() => {
+        cellsInI.forEach(cell => {
+          cell.style.transition = '';
+          cell.style.transform = '';
+        });
+        cellsInJ.forEach(cell => {
+          cell.style.transition = '';
+          cell.style.transform = '';
+        });
+
+        // update data grid: swap columns i and j in each row
+        for (let r = 0; r < m; r++) {
+          const tmp = currentAnimGrid[r][i];
+          currentAnimGrid[r][i] = currentAnimGrid[r][j];
+          currentAnimGrid[r][j] = tmp;
+        }
+
+        renderAnimGrid();
+        callback();
+      }, ANIM_DURATION);
+    }
+
+    /**
+     * Animate rotation (90° CW for forward, 90° CCW for backward).
+     * @param {'forward' | 'backward'} direction
+     * @param {() => void} callback
+     */
+    function animateRotate(direction, callback) {
+      const wrapper = document.getElementById('animGridWrapper');
+      if (!wrapper) {
+        callback();
+        return;
+      }
+
+      // Set up rotation animation
+      wrapper.style.transition = `transform ${ANIM_DURATION}ms linear`;
+      const angle = direction === 'forward' ? 90 : -90;
+      wrapper.style.transform = `rotate(${angle}deg)`;
+
+      setTimeout(() => {
+        // Reset transform
+        wrapper.style.transition = '';
+        wrapper.style.transform = 'rotate(0deg)';
+
+        // Update data grid
+        if (!currentAnimGrid) {
+          callback();
+          return;
+        }
+        if (direction === 'forward') {
+          currentAnimGrid = rotateCW(currentAnimGrid);
+        } else {
+          // backward: treat as counter-clockwise undo
+          currentAnimGrid = rotateCCW(currentAnimGrid);
+        }
+        renderAnimGrid();
+        callback();
+      }, ANIM_DURATION);
+    }
+  </script>
+</body>
+</html>
